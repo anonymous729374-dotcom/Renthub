@@ -1,59 +1,186 @@
-# Renthub
+# RentHub
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.2.
+RentHub is a standalone Angular 22 apartment marketplace. Visitors can search published listings, filter and sort results, view property details, save favourites, ask questions, and read or post comments. Authenticated users can create listings, preview them before submission, edit their own listings, and review their inquiries.
 
-## Development server
+## Features
 
-To start a local development server, run:
+- Supabase email/password signup, login, session restoration, logout, self-editable profiles, and protected routes.
+- Every public signup starts as a Normal User / Renter. Users may request Apartment Lister approval from Profile. Admin is assigned only through a trusted database-owner process.
+- Published apartment discovery with city, rent, bedrooms, furnished, amenity, sorting, and pagination filters.
+- Responsive listing cards, featured results, empty/loading/error states, image fallbacks, and favourite actions.
+- Apartment details with photos, rental preferences, amenities, inquiry form, comments, and one-level replies.
+- Authenticated listing creation, validation, photo URL entry, preview-and-submit workflow, owner listing dashboard, and owner-only edit/delete controls.
+- Favourites, renter inquiry history with landlord replies, and a landlord inbox for responding to inquiries, all backed by Supabase.
 
-```bash
-ng serve
-```
+## Stack and architecture
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- Angular 22 standalone components, lazy routes, Angular SSR, and client hydration.
+- Reactive forms for authentication and apartment submission; template forms for inquiry/comment interactions.
+- `ApartmentService` delegates persistence to the `ApartmentRepository` abstraction and its Supabase implementation.
+- Feature folders live under `src/app/features`; cross-cutting auth/config lives under `src/app/core`; reusable UI lives under `src/app/shared`.
+- Supabase Row Level Security derives owners, renters, and commenters from `auth.uid()`.
 
-## Code scaffolding
+## Prerequisites and local setup
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+1. Install Node.js compatible with Angular 22 and npm 11.
+2. From this directory, install dependencies: `npm install`.
+3. Configure `src/environments/environment.ts` with the Supabase project URL and publishable/anon key. Never use a service-role key or database password in the frontend. A safe template is provided in `src/environments/environment.example.ts`.
+4. For a fresh project, apply `src/supabase/schema.sql`, then `src/supabase/migrations/20261023_persistent_roles_first_admin.sql` to bootstrap the specified initial admin, then `20261026_comments_rls_no_recursion.sql` to ensure the final comments policies are non-recursive. For the existing project whose public schema currently has only `apartments`, `comments`, `favourites`, and `inquiries`, run `20261023_persistent_roles_first_admin.sql`, then `20261026_comments_rls_no_recursion.sql`. The first migration establishes profiles/role security and inquiry-response columns if missing; the second fixes comment policies only. Both preserve existing app rows. Do not run the older `20261021` or `20261022` migrations against a database with no `profiles` table; they depend on that legacy table and `is_lister` column.
+5. Start the app with `npm start`, then open `http://localhost:4200/`.
 
-```bash
-ng generate component component-name
-```
+Email confirmation settings are controlled by Supabase Auth. Signup follows the actual Auth response: a returned session is initialized and the user is signed in; a returned user without a session is not treated as authenticated and receives guidance to sign in when ready (confirm email first only if that Supabase setting is enabled). RentHub does not automatically retry signup or resend confirmation emails.
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Commands
 
 ```bash
-ng test
+npm start                 # Angular development server
+npm run build             # production browser and SSR build
+npm test -- --watch=false # Vitest unit tests through Angular CLI
 ```
 
-## Running end-to-end tests
+There is no lint script currently configured in `package.json`; TypeScript/template validation is performed by the Angular build.
 
-For end-to-end (e2e) testing, run:
+## Database and security
 
-```bash
-ng e2e
+Application roles are persisted in `public.profiles`; they are not read from user-editable Auth metadata. An `auth.users` trigger creates each account as `role='user'`, `lister_status='none'`. Lister requests enter `pending` and can be approved/rejected only by admins through a restricted database function. Profile RLS and column grants prevent browser clients from changing roles, approval status, or suspension. Apartment writes require an approved lister (or admin); listers are restricted to their own apartments, while active admins can manage all apartments. Inquiry, favourite, comment, and admin policies are enforced by RLS. The existing-project migration replaces policies on the RentHub application tables with these role-aware policies so an older permissive policy cannot OR-bypass them; review this if you have custom policies on these tables.
+
+`20261026_comments_rls_no_recursion.sql` changes policies on `public.comments` only. It removes any existing comments policies and recreates the four RentHub read/insert/update/delete rules. Reply-parent validation uses `public.comment_parent_is_valid(...)`, a `SECURITY DEFINER` helper with an empty search path and `row_security=off`; it can only be executed by authenticated users and returns true only for an active user, a published apartment, and a top-level parent in that same apartment. It does not alter the comments table or its rows. On SQL Editor, run the entire migration after the role migration. It is repeatable. If you maintain custom comments policies, review/re-add their intended behavior carefully after applying.
+
+To verify the deployed definitions, run:
+
+```sql
+SELECT policyname, roles, cmd, qual, with_check
+FROM pg_policies
+WHERE schemaname = 'public' AND tablename = 'comments'
+ORDER BY cmd, policyname;
+
+SELECT p.proname, p.prosecdef, p.proconfig, p.proacl
+FROM pg_proc AS p
+JOIN pg_namespace AS n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'comment_parent_is_valid';
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Expect four `renthub_comments_*` policies and a `SECURITY DEFINER` function with `search_path=""` and `row_security=off`. For a SQL Editor smoke test, replace the four UUID placeholders and run this as one transaction. It sets the authenticated role/JWT claims so RLS is exercised, creates a top-level comment and reply, asserts that forged ownership and cross-apartment replies are denied, checks private-apartment comments are not visible to a non-owner, then rolls the test rows back:
 
-## Additional Resources
+```sql
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '<TEST_USER_UUID>', true);
+SELECT set_config('request.jwt.claims', '{"sub":"<TEST_USER_UUID>","role":"authenticated"}', true);
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+-- Reading published apartment comments should return visible rows.
+SELECT id, apartment_id, user_id, parent_comment_id, comment_text, created_at
+FROM public.comments
+WHERE apartment_id = '<PUBLISHED_APARTMENT_UUID>'::uuid
+ORDER BY created_at;
+
+DO $$
+DECLARE
+    v_parent UUID;
+    v_affected INTEGER;
+BEGIN
+    INSERT INTO public.comments (apartment_id, user_id, parent_comment_id, comment_text)
+    VALUES ('<PUBLISHED_APARTMENT_UUID>'::uuid, auth.uid(), NULL, 'RLS smoke test parent')
+    RETURNING id INTO v_parent;
+
+    INSERT INTO public.comments (apartment_id, user_id, parent_comment_id, comment_text)
+    VALUES ('<PUBLISHED_APARTMENT_UUID>'::uuid, auth.uid(), v_parent, 'RLS smoke test reply');
+
+    BEGIN
+        INSERT INTO public.comments (apartment_id, user_id, parent_comment_id, comment_text)
+        VALUES ('<PUBLISHED_APARTMENT_UUID>'::uuid, '<OTHER_USER_UUID>'::uuid, NULL, 'forged author');
+        RAISE EXCEPTION 'FAIL: forged comment owner was accepted';
+    EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'PASS: forged comment owner denied';
+    END;
+
+    BEGIN
+        INSERT INTO public.comments (apartment_id, user_id, parent_comment_id, comment_text)
+        VALUES ('<OTHER_PUBLISHED_APARTMENT_UUID>'::uuid, auth.uid(), v_parent, 'cross-apartment reply');
+        RAISE EXCEPTION 'FAIL: cross-apartment reply was accepted';
+    EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'PASS: cross-apartment reply denied';
+    END;
+
+    UPDATE public.comments
+    SET comment_text = 'unauthorized edit attempt'
+    WHERE id = '<OTHER_USERS_COMMENT_UUID>'::uuid;
+    GET DIAGNOSTICS v_affected = ROW_COUNT;
+    IF v_affected <> 0 THEN RAISE EXCEPTION 'FAIL: another user comment was updated'; END IF;
+
+    DELETE FROM public.comments
+    WHERE id = '<OTHER_USERS_COMMENT_UUID>'::uuid;
+    GET DIAGNOSTICS v_affected = ROW_COUNT;
+    IF v_affected <> 0 THEN RAISE EXCEPTION 'FAIL: another user comment was deleted'; END IF;
+END;
+$$;
+
+-- Use a private apartment owned by someone else; expected visible count is 0.
+SELECT count(*) AS expected_zero
+FROM public.comments
+WHERE apartment_id = '<PRIVATE_OTHER_OWNED_APARTMENT_UUID>'::uuid;
+
+ROLLBACK;
+```
+
+The supplied user must be an active test account with a profile; both apartment IDs for inserts must be published. The private apartment must belong to another account. SQL Editor's normal owner role bypasses RLS, so the `SET LOCAL ROLE` and JWT claims are essential; rollback ensures the smoke-test comments are not retained.
+
+For the specified existing Auth account, verify the account UUID and email in Supabase Authentication, then run `20261023_persistent_roles_first_admin.sql` once in the Supabase SQL Editor as the trusted project owner. The migration checks that both match before promotion and aborts transactionally otherwise. It does not expose an admin endpoint or use Auth metadata. Do not run its promotion SQL from the browser or with a service-role key.
+
+Verify the persisted assignment in SQL Editor:
+
+```sql
+SELECT u.id, lower(u.email) AS email, p.role, p.lister_status, p.is_suspended
+FROM auth.users AS u
+JOIN public.profiles AS p ON p.id = u.id
+WHERE u.id = '7cfd119a-4fde-4780-813b-5b3e67188487'
+  AND lower(u.email) = 'anonymous729374@gmail.com';
+```
+
+Expected values are `role=admin`, `lister_status=approved`, and `is_suspended=false`. Then sign out/in in RentHub and verify the Admin link, `/admin`, and its user/listing data load. Verify deployed RLS policies with `SELECT tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname='public' AND tablename IN ('profiles','apartments','favourites','inquiries','comments') ORDER BY tablename,policyname;`. Do not consider the account provisioned until this query and the authenticated app checks succeed.
+
+Never expose a service-role key in the client. Account suspension is enforced at the RentHub profile/RLS layer; it does not invoke Supabase Auth's separate ban API.
+
+## Main workflows
+
+- Browse `/` and use the filters, sort controls, pagination, and favourite buttons.
+- Open a card to view details, save the apartment, send an inquiry, or participate in comments and replies.
+- Sign up normally as a renter. Use **Become a Lister** in the shared header or **Profile** to submit an application and wait for an administrator to approve it; pending requests remain visibly marked in the header.
+- Approved listers choose **List an Apartment** to complete the validated form. Normal users and pending applicants are redirected to Profile; RLS also blocks unauthorized listing writes.
+- Admins use **Admin** in the same shared header/layout to review applications, view/suspend/reactivate users, and view/edit/remove all listings.
+- Use **My listings** to find published listings, drafts, and rented properties; editing and deletion are limited to their owner by both the UI and RLS.
+- Use **Preview** to store the current form snapshot in browser session storage, review it, return to edit, or confirm one final submission.
+- Owners can use **Edit listing** on their own details page. The database remains authoritative if a stale or unauthorized URL is used.
+- Signed-in renters can use **My inquiries** to see their messages, statuses, and landlord responses. Owners see inquiries for their listings on the same page and can send or update a response.
+
+## Tests
+
+The test suite uses standalone Angular testing APIs and in-memory fakes; it does not require Supabase credentials. It covers the root navigation boundary, auth session restoration and renter-only signup metadata, renter/lister/admin route authorization, apartment-service repository delegation, home-page page reset on filter changes, and apartment-form validation/preview behavior.
+
+## Manual renter/lister/admin verification
+
+After applying the schema/migrations and configuring Supabase email confirmation as desired:
+
+1. Create a renter account; confirm email if required and sign in. Confirm the profile role is Normal User / Renter.
+2. Verify renter navigation (Home, Favourites, My Inquiries, Profile), save a published listing, submit an inquiry, and add a comment.
+3. Visit `/apartments/new` as that renter; it should route to Profile. Submit a lister application and verify listing access remains blocked while pending.
+4. Bootstrap an admin using the trusted SQL step above; approve the pending application from **Admin**. The lister signs in again and should now create/publish a listing.
+5. Sign in as the renter, open the lister's listing, and submit an inquiry.
+6. Sign in as the lister; Received Inquiries should show only owned-listing inquiries. Respond, then sign in as the renter and verify response/status.
+7. As admin, edit/remove a listing, reject another application, and suspend/reactivate a non-admin account. Verify suspended access is blocked by app guards and RLS.
+8. Attempt cross-owner listing edits and private inquiry reads using direct URLs/API requests; RLS should deny them. Confirm all roles use the same shared header/layout.
+
+## Deployment
+
+No deployment was performed from this workspace. The project produces an Angular SSR bundle (`dist/renthub`) and must be deployed to a host that can run the generated Node server, with Supabase environment values configured for the target environment. The repository URL, deployed URL, and demo credentials were not supplied, so they are intentionally not invented here:
+
+- GitHub repository: **[provide repository URL]**
+- Deployed application: **[provide verified deployment URL]**
+- Demo credentials: **[provide only if safe and available]**
+
+## Known limitations
+
+- Photos are accepted as public URLs; Supabase Storage upload is not implemented.
+- Apartment ratings are not implemented; comments are discussion only and no rating control is displayed.
+- RentHub suspension blocks protected application/API actions through RLS but does not use Supabase Auth's separate account-ban feature.
+- Live end-to-end verification requires a configured Supabase project, migrations, a trusted admin bootstrap, and confirmed test accounts.

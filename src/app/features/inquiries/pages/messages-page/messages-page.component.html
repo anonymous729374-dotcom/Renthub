@@ -1,0 +1,188 @@
+<main class="messages-page">
+  <header class="page-heading">
+    <p class="eyebrow">RENTHUB MESSAGES</p>
+    <h1>Messages</h1>
+  </header>
+  @if (loading()) {
+    <p class="state">Loading conversations…</p>
+  } @else if (errorMessage()) {
+    <section class="state error" role="alert">
+      <p>{{ errorMessage() }}</p>
+      <button type="button" (click)="reload()">Try again</button>
+    </section>
+  } @else {
+    <div class="chat-layout" [class.has-active]="hasActiveView()">
+      <aside class="conversation-list" aria-label="Your conversations">
+        <h2>Conversations</h2>
+        @if (!conversations().length) {
+          <p class="empty-list">
+            No conversations yet. Open an apartment listing and choose
+            <strong>Message Lister</strong> to start one.
+          </p>
+        } @else {
+          @for (conversation of conversations(); track conversation.id) {
+            <button
+              type="button"
+              class="conversation-item"
+              [class.selected]="selected()?.id === conversation.id"
+              (click)="selectConversation(conversation)"
+              [attr.aria-current]="selected()?.id === conversation.id ? 'true' : null"
+            >
+              @if (conversation.apartment?.photos?.[0]) {
+                <img
+                  class="thumb"
+                  [src]="conversation.apartment?.photos?.[0]"
+                  [alt]="conversation.apartment?.title || 'Apartment'"
+                  (error)="hideBrokenThumbnail($event)"
+                />
+              } @else {
+                <span class="thumb placeholder" aria-hidden="true">⌂</span>
+              }
+              <span class="summary">
+                <span class="summary-top"
+                  ><strong>{{ conversation.apartment?.title || 'Apartment conversation' }}</strong
+                  ><time>{{ latestAt(conversation) | date: 'short' }}</time></span
+                >
+                <span class="other-name">{{ otherParticipantName(conversation) }}</span>
+                <span class="preview">{{ latestPreview(conversation) }}</span>
+              </span>
+              @if (isUnread(conversation)) {
+                <span class="unread-count" [attr.aria-label]="unreadMessagesLabel(conversation)">
+                  {{ unreadMessagesText(conversation) }}
+                </span>
+              }
+            </button>
+          }
+        }
+        <app-pagination [page]="page()" [total]="total()" [pageSize]="pageSize" (pageChanged)="changePage($event)" />
+      </aside>
+      <section class="chat-panel" aria-label="Active conversation">
+        @if (selected(); as conversation) {
+          <div class="chat-header">
+            <button class="mobile-back" type="button" (click)="backToList()">
+              ← Conversations
+            </button>
+            <div class="chat-heading-copy">
+              <h2>{{ conversation.apartment?.title || 'Apartment conversation' }}</h2>
+              <p>
+                {{ otherParticipantName(conversation)
+                }}<span *ngIf="conversation.apartment?.address">
+                  · {{ conversation.apartment?.address }}</span
+                ><span *ngIf="conversation.apartment?.city">
+                  · {{ conversation.apartment?.city }}</span
+                >
+              </p>
+            </div>
+            @if (conversation.apartment?.monthly_rent != null) {
+              <strong class="rent"
+                >{{
+                  conversation.apartment?.monthly_rent | currency: 'INR' : 'symbol' : '1.0-0'
+                }}/mo</strong
+              >
+            }
+            <a [routerLink]="['/apartments', conversation.apartment_id]">View listing</a>
+          </div>
+          <div class="message-history" aria-live="polite">
+            @if (!conversation.messages?.length) {
+              <p class="empty-history">
+                No messages yet. Send a message to start the conversation.
+              </p>
+            }
+            @for (message of conversation.messages || []; track message.id) {
+              <article class="bubble" [class.mine]="message.sender_id === auth.currentUser?.id">
+                <div class="bubble-meta">
+                  <strong>{{ senderName(conversation, message) }}</strong
+                  ><time>{{ message.created_at | date: 'medium' }}</time>
+                </div>
+                <p>{{ message.body }}</p>
+              </article>
+            }
+          </div>
+          @if (chatError()) {
+            <p class="inline-error" role="alert">{{ chatError() }}</p>
+          }
+          @if (refreshError()) {
+            <p class="inline-error" role="status">{{ refreshError() }}</p>
+          }
+          <form class="composer" (ngSubmit)="sendMessage()">
+            <label for="chat-message">Message {{ otherParticipantName(conversation) }}</label>
+            <textarea
+              id="chat-message"
+              name="chat-message"
+              [(ngModel)]="draft"
+              rows="3"
+              maxlength="3000"
+              placeholder="Discuss availability, rent, visits, or other terms…"
+              (keydown)="handleComposerKeydown($event)"
+            ></textarea>
+            <div class="composer-footer">
+              <span>Enter to send · Shift+Enter for a new line</span
+              ><button type="submit" [disabled]="isSending() || draft.trim().length < 2">
+                {{ isSending() ? 'Sending…' : 'Send' }}
+              </button>
+            </div>
+          </form>
+        } @else if (pendingApartment(); as apartment) {
+          <div class="chat-header">
+            <button class="mobile-back" type="button" (click)="backToList()">
+              ← Conversations
+            </button>
+            <div class="chat-heading-copy">
+              <h2>{{ apartment.title }}</h2>
+              <p>{{ apartment.address }} · {{ apartment.city }}</p>
+            </div>
+            <strong class="rent"
+              >{{ apartment.monthly_rent | currency: 'INR' : 'symbol' : '1.0-0' }}/mo</strong
+            >
+            <a [routerLink]="['/apartments', apartment.id]">View listing</a>
+          </div>
+          <div class="start-prompt">
+            <p>
+              Start a private conversation with the apartment lister. Your first message must
+              contain at least 10 characters.
+            </p>
+          </div>
+          @if (chatError()) {
+            <p class="inline-error" role="alert">{{ chatError() }}</p>
+          }
+          <form class="composer" (ngSubmit)="sendMessage()">
+            <label for="chat-message">Message the lister</label>
+            <textarea
+              id="chat-message"
+              name="chat-message"
+              [(ngModel)]="draft"
+              rows="3"
+              minlength="10"
+              maxlength="3000"
+              placeholder="Hi, I’m interested in this apartment. Is it available for a visit?"
+              (keydown)="handleComposerKeydown($event)"
+            ></textarea>
+            <div class="composer-footer">
+              <span>First message: 10–3000 characters · Shift+Enter for a new line</span
+              ><button type="submit" [disabled]="isSending() || draft.trim().length < 10">
+                {{ isSending() ? 'Sending…' : 'Start conversation' }}
+              </button>
+            </div>
+          </form>
+        } @else if (!conversations().length) {
+          <div class="chat-empty">
+            <span class="chat-icon" aria-hidden="true">✉</span>
+            <h2>No conversations yet</h2>
+            <p>Start a conversation from an apartment listing. Your messages will appear here.</p>
+          </div>
+        } @else if (selectionError()) {
+          <div class="chat-empty error">
+            <p>{{ selectionError() }}</p>
+            <button type="button" (click)="backToList()">Back to conversations</button>
+          </div>
+        } @else {
+          <div class="chat-empty">
+            <span class="chat-icon" aria-hidden="true">✉</span>
+            <h2>Select a conversation</h2>
+            <p>Your conversations with apartment listers will appear here.</p>
+          </div>
+        }
+      </section>
+    </div>
+  }
+</main>

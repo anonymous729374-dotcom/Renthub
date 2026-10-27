@@ -1,11 +1,14 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { ApplicationConfig } from '@angular/core';
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { routes } from './app.routes';
-import { provideClientHydration } from '@angular/platform-browser';
+import { APARTMENT_REPOSITORY } from './features/apartments/data-access/apartment.repository.token';
+import { SupabaseApartmentRepository } from './features/apartments/data-access/supabase-apartment.repository';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideBrowserGlobalErrorListeners(),
-    provideRouter(routes), provideClientHydration()
-  ]
+    provideRouter(routes, withInMemoryScrolling({ anchorScrolling: 'enabled' })),
+    provideClientHydration(withEventReplay()),
+    { provide: APARTMENT_REPOSITORY, useClass: SupabaseApartmentRepository },
+  ],
 };
