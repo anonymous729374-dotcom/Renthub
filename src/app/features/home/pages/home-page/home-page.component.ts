@@ -37,6 +37,7 @@ import { PaginationComponent } from '../../components/pagination/pagination.comp
         (filtersChanged)="onFiltersChanged($event)"
       />
 
+      <div id="apartment-results" class="results-anchor">
       @if (errorMessage()) {
   <section class="feedback error-state" role="alert">
     <h2>We couldn't load the apartments</h2>
@@ -90,6 +91,7 @@ import { PaginationComponent } from '../../components/pagination/pagination.comp
 </section>
 
       }
+      </div>
     </div>
   `,
   styles: `
@@ -112,6 +114,7 @@ import { PaginationComponent } from '../../components/pagination/pagination.comp
     .hero-decoration { display: grid; flex-shrink: 0; width: 170px; height: 170px; place-items: center; border: 1px solid #bfdbfe; border-radius: 2.5rem; background: #ffffff80; transform: rotate(8deg); }
     .hero-decoration span { color: #2563eb; font-size: 7rem; line-height: 1; }
     .page-content { width: min(1200px, calc(100% - 2.5rem)); margin: 2rem auto 4rem; }
+    .results-anchor { scroll-margin-top: 1rem; }
     app-apartment-filters { display: block; margin-bottom: 1.5rem; }
     .listings-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
     .listings-heading h2 { margin: 0; color: #172554; font-size: 1.7rem; }
@@ -150,7 +153,7 @@ errorMessage = signal('');
     void this.loadApartments();
   }
 
-  async loadApartments(): Promise<void> {
+  async loadApartments(scrollAfterLoad = false): Promise<void> {
   const requestId = ++this.loadRequestId;
   this.loading.set(true);
   this.errorMessage.set('');
@@ -175,7 +178,10 @@ errorMessage = signal('');
         : 'An unexpected error occurred while loading apartments.'
     );
   } finally {
-    if (requestId === this.loadRequestId) this.loading.set(false);
+    if (requestId === this.loadRequestId) {
+      this.loading.set(false);
+      if (scrollAfterLoad) this.scrollToResults();
+    }
   }
 }
 
@@ -186,7 +192,7 @@ errorMessage = signal('');
       page: 1,
     };
 
-    void this.loadApartments();
+    void this.loadApartments(true);
   }
 
   onPageChanged(page: number): void {
@@ -206,5 +212,18 @@ errorMessage = signal('');
     };
 
     void this.loadApartments();
+  }
+
+  private scrollToResults(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    window.requestAnimationFrame(() => {
+      document.getElementById('apartment-results')?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'auto'
+          : 'smooth',
+        block: 'start',
+      });
+    });
   }
 }
