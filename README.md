@@ -25,7 +25,7 @@ RentHub is a standalone Angular 22 apartment marketplace. Visitors can search pu
 1. Install Node.js compatible with Angular 22 and npm 11.
 2. From this directory, install dependencies: `npm install`.
 3. Configure `src/environments/environment.ts` with the Supabase project URL and publishable/anon key. Never use a service-role key or database password in the frontend. A safe template is provided in `src/environments/environment.example.ts`.
-4. For a fresh project, apply `src/supabase/schema.sql`, then `src/supabase/migrations/20261023_persistent_roles_first_admin.sql` to bootstrap the specified initial admin, then `20261026_comments_rls_no_recursion.sql` to ensure the final comments policies are non-recursive. For the existing project whose public schema currently has only `apartments`, `comments`, `favourites`, and `inquiries`, run `20261023_persistent_roles_first_admin.sql`, then `20261026_comments_rls_no_recursion.sql`. The first migration establishes profiles/role security and inquiry-response columns if missing; the second fixes comment policies only. Both preserve existing app rows. Do not run the older `20261021` or `20261022` migrations against a database with no `profiles` table; they depend on that legacy table and `is_lister` column.
+4. Apply the database setup using the ordered instructions in [Supabase deployment](docs/supabase-deployment.md). The general migrations no longer contain a specific administrator's identity. Promote the first admin separately using the reviewed operator template at `src/supabase/operations/promote_initial_admin.sql`.
 5. Start the app with `npm start`, then open `http://localhost:4200/`.
 
 Email confirmation settings are controlled by Supabase Auth. Signup follows the actual Auth response: a returned session is initialized and the user is signed in; a returned user without a session is not treated as authenticated and receives guidance to sign in when ready (confirm email first only if that Supabase setting is enabled). RentHub does not automatically retry signup or resend confirmation emails.
@@ -125,7 +125,7 @@ ROLLBACK;
 
 The supplied user must be an active test account with a profile; both apartment IDs for inserts must be published. The private apartment must belong to another account. SQL Editor's normal owner role bypasses RLS, so the `SET LOCAL ROLE` and JWT claims are essential; rollback ensures the smoke-test comments are not retained.
 
-For the specified existing Auth account, verify the account UUID and email in Supabase Authentication, then run `20261023_persistent_roles_first_admin.sql` once in the Supabase SQL Editor as the trusted project owner. The migration checks that both match before promotion and aborts transactionally otherwise. It does not expose an admin endpoint or use Auth metadata. Do not run its promotion SQL from the browser or with a service-role key.
+To promote the first administrator, verify that account's UUID and email in Supabase Authentication, replace both placeholders in `src/supabase/operations/promote_initial_admin.sql`, and run it in Supabase SQL Editor as the trusted project owner. The script checks the exact pair and aborts transactionally if it does not match. It does not expose an admin endpoint or use Auth metadata. Do not run it from the browser or with a service-role key.
 
 Verify the persisted assignment in SQL Editor:
 
@@ -133,8 +133,8 @@ Verify the persisted assignment in SQL Editor:
 SELECT u.id, lower(u.email) AS email, p.role, p.lister_status, p.is_suspended
 FROM auth.users AS u
 JOIN public.profiles AS p ON p.id = u.id
-WHERE u.id = '7cfd119a-4fde-4780-813b-5b3e67188487'
-  AND lower(u.email) = 'anonymous729374@gmail.com';
+WHERE u.id = '<VERIFIED_AUTH_USER_UUID>'
+  AND lower(u.email) = lower('<VERIFIED_AUTH_EMAIL>');
 ```
 
 Expected values are `role=admin`, `lister_status=approved`, and `is_suspended=false`. Then sign out/in in RentHub and verify the Admin link, `/admin`, and its user/listing data load. Verify deployed RLS policies with `SELECT tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname='public' AND tablename IN ('profiles','apartments','favourites','inquiries','comments') ORDER BY tablename,policyname;`. Do not consider the account provisioned until this query and the authenticated app checks succeed.
@@ -172,7 +172,17 @@ After applying the schema/migrations and configuring Supabase email confirmation
 
 ## Deployment
 
-No deployment was performed from this workspace. The project produces an Angular SSR bundle (`dist/renthub`) and must be deployed to a host that can run the generated Node server, with Supabase environment values configured for the target environment. The repository URL, deployed URL, and demo credentials were not supplied, so they are intentionally not invented here:
+The repository includes `vercel.json` for GitHub-connected Vercel deployment. Vercel builds the Angular app and publishes `dist/renthub/browser`; the SPA rewrite serves Angular's client-rendered shell for deep links, while prerendered static files remain available. The current Vercel setup is static/CSR delivery, so the generated Node SSR server bundle is not hosted. This preserves the application's browser-side Supabase workflows and role guards.
+
+Before the first production deployment:
+
+1. Push the repository to GitHub and import it into Vercel with the project root set to this directory. Keep the detected Angular framework, build command `npm run build`, and output directory `dist/renthub/browser`.
+2. Check that the public Supabase URL and publishable/anon key in `src/environments/environment.ts` belong to the intended production project. These values are expected to be present in browser bundles; never substitute a service-role key or database password.
+3. Apply and verify the required SQL setup using [docs/supabase-deployment.md](docs/supabase-deployment.md).
+4. In Supabase Auth URL configuration, set the Vercel production origin as the Site URL and add the production and preview callback URLs required by the app's password/email-confirmation flow. Update these after Vercel assigns the final domain.
+5. After deployment, directly open and refresh `/`, `/apartments/<id>`, `/login`, `/profile`, and `/messages`; verify static assets load, protected routes wait for auth initialization, and browser console/network logs contain no CSP, CORS, or Supabase errors.
+
+No deployment was performed from this workspace. The repository URL, deployed URL, and demo credentials were not supplied, so they are intentionally not invented here:
 
 - GitHub repository: **[provide repository URL]**
 - Deployed application: **[provide verified deployment URL]**

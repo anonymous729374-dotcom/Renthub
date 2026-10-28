@@ -1,4 +1,4 @@
--- RentHub persistent roles + verified first-admin bootstrap.
+-- RentHub persistent roles and authorization bootstrap.
 -- Standalone for an existing project whose public app tables are:
 -- apartments, comments, favourites, and inquiries. This changes policies and
 -- adds profile/auth functions, but does not delete or rewrite application rows.
@@ -370,26 +370,6 @@ WITH CHECK ((user_id=auth.uid() AND public.current_user_is_active()) OR public.c
 CREATE POLICY renthub_comments_delete ON public.comments
 FOR DELETE TO authenticated
 USING ((user_id=auth.uid() AND public.current_user_is_active()) OR public.current_user_is_admin());
-
--- One-time trusted bootstrap for the supplied existing Auth identity. Fail the
--- entire transaction if either immutable identifier does not match.
-DO $$ DECLARE affected INTEGER;
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM auth.users
-        WHERE id='7cfd119a-4fde-4780-813b-5b3e67188487'::UUID
-          AND lower(email)='anonymous729374@gmail.com'
-    ) THEN
-        RAISE EXCEPTION 'Admin bootstrap stopped: the supplied Auth UUID/email pair was not found';
-    END IF;
-
-    UPDATE public.profiles
-    SET role='admin', lister_status='approved'
-    WHERE id='7cfd119a-4fde-4780-813b-5b3e67188487'::UUID
-      AND lower(email)='anonymous729374@gmail.com';
-    GET DIAGNOSTICS affected = ROW_COUNT;
-    IF affected <> 1 THEN RAISE EXCEPTION 'Admin bootstrap stopped: expected exactly one matching profile'; END IF;
-END $$;
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
