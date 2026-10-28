@@ -26,6 +26,7 @@ import { ApartmentPeopleService } from '../../services/apartment-people.service'
       <section *ngIf="!loading() && errorMessage()" class="state-message">
         <h2>Unable to load apartment</h2>
         <p>{{ errorMessage() }}</p>
+        <button type="button" class="primary-button" (click)="retryLoad()">Try again</button>
         <a routerLink="/" class="primary-button">Browse listings</a>
       </section>
 
@@ -242,6 +243,7 @@ export class ApartmentDetailsPageComponent implements OnInit {
   readonly listerName = signal('Lister details unavailable');
   readonly listerNameLoading = signal(false);
   private loadRequestId = 0;
+  private currentApartmentId: string | null = null;
 
   ngOnInit(): void {
     this.route.paramMap
@@ -251,10 +253,12 @@ export class ApartmentDetailsPageComponent implements OnInit {
 
   private async loadApartment(id: string | null): Promise<void> {
     const requestId = ++this.loadRequestId;
+    this.currentApartmentId = id;
     this.apartment.set(null);
     this.errorMessage.set('');
     this.actionError.set('');
     this.isFavourite.set(false);
+    this.favouriteLoading.set(false);
     this.listerName.set('Lister details unavailable');
     this.listerNameLoading.set(false);
     this.loading.set(true);
@@ -275,17 +279,11 @@ export class ApartmentDetailsPageComponent implements OnInit {
       }
 
       this.apartment.set(result);
+      // The listing is the primary content. Do not keep the whole page behind
+      // its loading state while unrelated name/favourite requests are pending.
+      this.loading.set(false);
       void this.loadListerName(result.id, result.owner_id, requestId);
-      try {
-        const isFavourite = await this.favouriteService.isFavourite(result.id);
-        if (requestId !== this.loadRequestId) return;
-        this.isFavourite.set(isFavourite);
-      } catch (error: unknown) {
-        if (requestId !== this.loadRequestId) return;
-        this.actionError.set(
-          error instanceof Error ? error.message : 'Unable to load saved status.',
-        );
-      }
+      void this.loadFavouriteStatus(result.id, requestId);
     } catch (error: unknown) {
       if (requestId !== this.loadRequestId) return;
       console.error('Failed to load apartment details:', error);
@@ -296,6 +294,27 @@ export class ApartmentDetailsPageComponent implements OnInit {
       );
     } finally {
       if (requestId === this.loadRequestId) this.loading.set(false);
+    }
+  }
+
+  retryLoad(): void {
+    if (this.currentApartmentId) void this.loadApartment(this.currentApartmentId);
+  }
+
+  private async loadFavouriteStatus(apartmentId: string, requestId: number): Promise<void> {
+    this.favouriteLoading.set(true);
+    try {
+      const isFavourite = await this.favouriteService.isFavourite(apartmentId);
+      if (requestId !== this.loadRequestId) return;
+      this.isFavourite.set(isFavourite);
+    } catch (error: unknown) {
+      if (requestId !== this.loadRequestId) return;
+      console.error('Failed to load apartment favourite status:', error);
+      this.actionError.set(
+        error instanceof Error ? error.message : 'Unable to load saved status.',
+      );
+    } finally {
+      if (requestId === this.loadRequestId) this.favouriteLoading.set(false);
     }
   }
 
