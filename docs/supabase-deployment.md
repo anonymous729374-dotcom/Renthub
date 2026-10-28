@@ -19,7 +19,7 @@ The following order matches migration dependencies. Run each file once, in order
 11. `src/supabase/migrations/20261103_apartment_and_comment_display_names.sql` — installs the scoped display-name RPC.
 12. `src/supabase/migrations/20261104_enable_message_realtime.sql` — adds chat messages to the Supabase Realtime publication for prompt unread updates.
 
-Do not apply the legacy `20261020`, `20261021`, or `20261022` scripts on this existing schema path: they target earlier schema generations and overlap the consolidated `20261023` migration. For a new Supabase project, apply `src/supabase/schema.sql` first, then migrations `20261102`, `20261103`, and `20261104` in order. The base schema already contains the role, comment, conversation, and unread-count objects; the location search, display-name RPC, and Realtime publication remain separate.
+Do not apply the legacy `20261020`, `20261021`, or `20261022` scripts on this existing schema path: they target earlier schema generations and overlap the consolidated `20261023` migration. For a new Supabase project, apply `src/supabase/schema.sql` first, then migrations `20261102`, `20261103`, and `20261104` in order. The base schema contains the role, comment, conversation, unread-count, and apartment display-name objects; location search and Realtime publication remain separate. The display-name migration is repeatable and refreshes PostgREST's schema cache.
 
 After migration, verify the role policies and RPCs using the SQL checks in the main README. Also verify that `public.inquiry_messages` appears in the `supabase_realtime` publication. Do not consider deployment complete until the deployed database has been checked; local files cannot prove the remote Supabase state.
 

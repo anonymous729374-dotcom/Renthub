@@ -6,6 +6,7 @@ LANGUAGE SQL
 STABLE
 SECURITY DEFINER
 SET search_path = ''
+SET row_security = off
 AS $$
   WITH permitted_apartment AS (
     SELECT a.id, a.owner_id

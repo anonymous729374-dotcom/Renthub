@@ -395,6 +395,47 @@ $$;
 REVOKE ALL ON FUNCTION public.get_inquiry_participant_names(UUID[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_inquiry_participant_names(UUID[]) TO authenticated;
 
+-- Return names only for a listing's owner and commenters on that same visible
+-- listing. Public users never receive email, role, suspension, or other profile
+-- fields. This RPC is also installed by migration 20261103 for existing DBs.
+CREATE OR REPLACE FUNCTION public.get_apartment_display_names(p_apartment_id UUID)
+RETURNS TABLE(user_id UUID, display_name TEXT, is_lister BOOLEAN)
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+SET row_security = off
+AS $$
+  WITH permitted_apartment AS (
+    SELECT a.id, a.owner_id
+    FROM public.apartments AS a
+    WHERE a.id = p_apartment_id
+      AND (
+        a.status = 'published'
+        OR a.owner_id = auth.uid()
+        OR public.current_user_is_admin()
+      )
+  ),
+  people AS (
+    SELECT pa.owner_id AS user_id, pa.owner_id
+    FROM permitted_apartment AS pa
+    UNION
+    SELECT c.user_id, pa.owner_id
+    FROM permitted_apartment AS pa
+    JOIN public.comments AS c ON c.apartment_id = pa.id
+  )
+  SELECT people.user_id,
+         COALESCE(
+           NULLIF(BTRIM(profiles.full_name), ''),
+           CASE WHEN people.user_id = people.owner_id THEN 'Lister' ELSE 'RentHub member' END
+         ) AS display_name,
+         people.user_id = people.owner_id AS is_lister
+  FROM people
+  LEFT JOIN public.profiles AS profiles ON profiles.id = people.user_id;
+$$;
+REVOKE ALL ON FUNCTION public.get_apartment_display_names(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_apartment_display_names(UUID) TO anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.mark_inquiry_conversation_read(p_inquiry_id UUID)
 RETURNS TIMESTAMPTZ
 LANGUAGE plpgsql SECURITY DEFINER
