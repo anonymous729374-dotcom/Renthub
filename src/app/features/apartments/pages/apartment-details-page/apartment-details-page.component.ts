@@ -304,9 +304,13 @@ export class ApartmentDetailsPageComponent implements OnInit {
     try {
       const people = await this.apartmentPeople.getDisplayNames(apartmentId);
       if (requestId !== this.loadRequestId) return;
-      const lister = people.find(person => person.user_id === ownerId && person.is_lister);
-      this.listerName.set(lister?.display_name?.trim() || 'Lister details unavailable');
-    } catch {
+      // The apartment's owner_id is the authoritative identity here. Matching
+      // the extra is_lister flag made the UI depend on that optional RPC field
+      // being present and true, even when the owner row and name were returned.
+      const lister = people.find(person => person.user_id === ownerId);
+      this.listerName.set(lister?.display_name?.trim() || 'Lister');
+    } catch (error: unknown) {
+      console.error('Failed to load the apartment lister display name:', error);
       if (requestId === this.loadRequestId) this.listerName.set('Lister details unavailable');
     } finally {
       if (requestId === this.loadRequestId) this.listerNameLoading.set(false);
