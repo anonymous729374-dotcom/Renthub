@@ -5,11 +5,13 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from '../../../core/config/supabase.client';
 import {
   Apartment,
+  ApartmentCardListing,
   APARTMENT_AMENITIES,
   normalizeAmenityFilter,
   ApartmentFilters,
   CreateApartmentInput,
   PaginatedApartments,
+  PaginatedApartmentCards,
   UpdateApartmentInput,
 } from '../models/apartment.model';
 import { ApartmentRepository } from './apartment.repository';
@@ -38,6 +40,9 @@ export function buildApartmentSearchFilter(input: string): string | null {
   return searchable.join(',');
 }
 
+const APARTMENT_CARD_COLUMNS =
+  'id,title,address,city,state,monthly_rent,bedrooms,bathrooms,area_sqft,is_furnished,amenities,photos';
+
 @Injectable({ providedIn: 'root' })
 export class SupabaseApartmentRepository implements ApartmentRepository {
   private readonly supabase: SupabaseClient = inject(SUPABASE_CLIENT);
@@ -45,7 +50,7 @@ export class SupabaseApartmentRepository implements ApartmentRepository {
 
   async getApartments(
     filters: ApartmentFilters = {},
-  ): Promise<PaginatedApartments> {
+  ): Promise<PaginatedApartmentCards> {
     const page = Math.max(1, Math.floor(filters.page ?? 1));
     const pageSize = Math.min(
       100,
@@ -78,7 +83,7 @@ export class SupabaseApartmentRepository implements ApartmentRepository {
 
     let query = this.supabase
       .from(this.table)
-      .select('*', { count: 'exact' })
+      .select(APARTMENT_CARD_COLUMNS, { count: 'exact' })
       .eq('status', 'published');
 
     const searchFilter = buildApartmentSearchFilter(filters.search ?? '');
@@ -132,7 +137,7 @@ export class SupabaseApartmentRepository implements ApartmentRepository {
     }
 
     return {
-      items: (data ?? []) as Apartment[],
+      items: (data ?? []) as ApartmentCardListing[],
       total: count ?? 0,
       page,
       pageSize,

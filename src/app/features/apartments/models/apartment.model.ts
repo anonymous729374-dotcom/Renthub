@@ -66,3 +66,27 @@ export interface PaginatedApartments {
   page: number;
   pageSize: number;
 }
+
+/** Fields rendered by the apartment cards used on Home and Favourites. */
+export type ApartmentCardListing = Pick<
+  Apartment,
+  | 'id'
+  | 'title'
+  | 'address'
+  | 'city'
+  | 'state'
+  | 'monthly_rent'
+  | 'bedrooms'
+  | 'bathrooms'
+  | 'area_sqft'
+  | 'is_furnished'
+  | 'amenities'
+  | 'photos'
+>;
+
+export interface PaginatedApartmentCards {
+  items: ApartmentCardListing[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

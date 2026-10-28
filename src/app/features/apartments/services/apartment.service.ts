@@ -6,6 +6,7 @@ import {
   Apartment,
   ApartmentFilters,
   CreateApartmentInput,
+  PaginatedApartmentCards,
   PaginatedApartments,
   UpdateApartmentInput,
 } from '../models/apartment.model';
@@ -16,7 +17,7 @@ export class ApartmentService {
 
   getApartments(
     filters: ApartmentFilters = {},
-  ): Promise<PaginatedApartments> {
+  ): Promise<PaginatedApartmentCards> {
     return this.repository.getApartments(filters);
   }
 

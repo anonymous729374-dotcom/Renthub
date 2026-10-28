@@ -11,7 +11,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 
-import { Apartment } from '../../../apartments/models/apartment.model';
+import { ApartmentCardListing } from '../../../apartments/models/apartment.model';
 import { FavouriteService } from '../../../favourites/services/favourite.service';
 
 @Component({
@@ -320,7 +320,7 @@ import { FavouriteService } from '../../../favourites/services/favourite.service
   `,
 })
 export class ApartmentCardComponent implements OnInit {
-  readonly apartment = input.required<Apartment>();
+  readonly apartment = input.required<ApartmentCardListing>();
 
   private readonly favouriteService = inject(FavouriteService);
   private readonly destroyRef = inject(DestroyRef);

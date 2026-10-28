@@ -1,7 +1,7 @@
 
 import { Component, OnInit, inject, signal } from '@angular/core';
 import {
-  Apartment,
+  ApartmentCardListing,
   ApartmentFilters,
 } from '../../../apartments/models/apartment.model';
 import { ApartmentService } from '../../../apartments/services/apartment.service';
@@ -135,7 +135,7 @@ export class HomePageComponent implements OnInit {
   private readonly apartmentService = inject(ApartmentService);
   private loadRequestId = 0;
 
-apartments = signal<Apartment[]>([]);
+apartments = signal<ApartmentCardListing[]>([]);
 total = signal(0);
 loading = signal(false);
 errorMessage = signal('');

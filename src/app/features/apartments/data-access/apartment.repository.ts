@@ -1,7 +1,9 @@
 import {
   Apartment,
+  ApartmentCardListing,
   ApartmentFilters,
   CreateApartmentInput,
+  PaginatedApartmentCards,
   PaginatedApartments,
   UpdateApartmentInput,
 } from '../models/apartment.model';
@@ -9,7 +11,7 @@ import {
 export interface ApartmentRepository {
   getApartments(
     filters?: ApartmentFilters,
-  ): Promise<PaginatedApartments>;
+  ): Promise<PaginatedApartmentCards>;
 
   getApartmentById(id: string): Promise<Apartment | null>;
 
