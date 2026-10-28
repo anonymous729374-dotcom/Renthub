@@ -8,6 +8,7 @@ import { CommentSectionComponent } from '../../../comments/components/comment-se
 import { FavouriteService } from '../../../favourites/services/favourite.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { Router } from '@angular/router';
+import { ApartmentPeopleService } from '../../services/apartment-people.service';
 
 @Component({
   selector: 'app-apartment-details-page',
@@ -37,6 +38,13 @@ import { Router } from '@angular/router';
               📍 {{ property.address }}, {{ property.city
               }}<span *ngIf="property.state">, {{ property.state }}</span>
             </p>
+            <div class="lister-byline" aria-live="polite">
+              <span class="lister-avatar" aria-hidden="true">{{ listerInitial() }}</span>
+              <span class="lister-copy">
+                <span class="lister-label">Listed by</span>
+                <strong>{{ listerNameLoading() ? 'Loading lister…' : listerName() }}</strong>
+              </span>
+            </div>
             @if (property.status !== 'published') {
               <span class="listing-status">{{
                 property.status === 'draft' ? 'Draft listing' : 'Already rented'
@@ -45,7 +53,7 @@ import { Router } from '@angular/router';
           </div>
 
           <div class="header-actions">
-            @if (!auth.currentUser?.isSuspended) {
+            @if (!auth.currentUser || auth.currentUser.isSuspended === false) {
               <button
                 type="button"
                 class="secondary-button"
@@ -57,7 +65,7 @@ import { Router } from '@angular/router';
             }
             @if (auth.user$ | async; as user) {
               @if (
-                !user.isSuspended &&
+                user.isSuspended === false &&
                 (user.role === 'admin' ||
                   (user.id === property.owner_id &&
                     user.role === 'lister' &&
@@ -176,7 +184,7 @@ import { Router } from '@angular/router';
               @if (
                 property.status === 'published' &&
                 auth.currentUser?.id !== property.owner_id &&
-                !auth.currentUser?.isSuspended
+                (!auth.currentUser || auth.currentUser.isSuspended === false)
               ) {
                 <a
                   class="primary-button contact-link"
@@ -188,7 +196,10 @@ import { Router } from '@angular/router';
                 property.status === 'published' && auth.currentUser?.id === property.owner_id
               ) {
                 <p class="muted contact-note">This is your listing.</p>
-              } @else if (property.status === 'published' && !auth.currentUser?.isSuspended) {
+              } @else if (
+                property.status === 'published' &&
+                (!auth.currentUser || auth.currentUser.isSuspended === false)
+              ) {
                 <p class="muted contact-note">
                   Contact the listing owner about availability and rental terms.
                 </p>
@@ -217,6 +228,7 @@ export class ApartmentDetailsPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly apartmentService = inject(ApartmentService);
+  private readonly apartmentPeople = inject(ApartmentPeopleService);
   private readonly favouriteService = inject(FavouriteService);
   private readonly router = inject(Router);
   readonly auth = inject(AuthService);
@@ -227,6 +239,8 @@ export class ApartmentDetailsPageComponent implements OnInit {
   readonly isFavourite = signal(false);
   readonly favouriteLoading = signal(false);
   readonly actionError = signal('');
+  readonly listerName = signal('Lister details unavailable');
+  readonly listerNameLoading = signal(false);
   private loadRequestId = 0;
 
   ngOnInit(): void {
@@ -241,6 +255,8 @@ export class ApartmentDetailsPageComponent implements OnInit {
     this.errorMessage.set('');
     this.actionError.set('');
     this.isFavourite.set(false);
+    this.listerName.set('Lister details unavailable');
+    this.listerNameLoading.set(false);
     this.loading.set(true);
 
     if (!id) {
@@ -259,6 +275,7 @@ export class ApartmentDetailsPageComponent implements OnInit {
       }
 
       this.apartment.set(result);
+      void this.loadListerName(result.id, result.owner_id, requestId);
       try {
         const isFavourite = await this.favouriteService.isFavourite(result.id);
         if (requestId !== this.loadRequestId) return;
@@ -280,6 +297,25 @@ export class ApartmentDetailsPageComponent implements OnInit {
     } finally {
       if (requestId === this.loadRequestId) this.loading.set(false);
     }
+  }
+
+  private async loadListerName(apartmentId: string, ownerId: string, requestId: number): Promise<void> {
+    this.listerNameLoading.set(true);
+    try {
+      const people = await this.apartmentPeople.getDisplayNames(apartmentId);
+      if (requestId !== this.loadRequestId) return;
+      const lister = people.find(person => person.user_id === ownerId && person.is_lister);
+      this.listerName.set(lister?.display_name?.trim() || 'Lister details unavailable');
+    } catch {
+      if (requestId === this.loadRequestId) this.listerName.set('Lister details unavailable');
+    } finally {
+      if (requestId === this.loadRequestId) this.listerNameLoading.set(false);
+    }
+  }
+
+  listerInitial(): string {
+    const name = this.listerNameLoading() ? '' : this.listerName();
+    return name === 'Lister details unavailable' ? 'R' : (name.trim().charAt(0).toUpperCase() || 'R');
   }
 
   foodPreferenceLabel(value: Apartment['vegetarian_preference']): string {

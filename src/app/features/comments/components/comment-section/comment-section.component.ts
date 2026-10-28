@@ -49,7 +49,10 @@ import { PaginationComponent } from '../../../home/components/pagination/paginat
 
       <article *ngFor="let comment of comments()" class="comment">
         <div class="comment-heading">
-          <strong>{{ authorLabel(comment.user_id) }}</strong>
+          <span class="author-info">
+            <span class="author-avatar" aria-hidden="true">{{ authorInitial(comment.user_id, comment.author_name) }}</span>
+            <strong>{{ authorLabel(comment.user_id, comment.author_name) }}</strong>
+          </span>
           <time>{{ comment.created_at | date: 'medium' }}</time>
         </div>
 
@@ -96,7 +99,10 @@ import { PaginationComponent } from '../../../home/components/pagination/paginat
         </form>
 
         <div *ngFor="let reply of comment.replies || []" class="reply">
-          <strong>{{ authorLabel(reply.user_id) }}</strong>
+          <span class="author-info reply-author">
+            <span class="author-avatar" aria-hidden="true">{{ authorInitial(reply.user_id, reply.author_name) }}</span>
+            <strong>{{ authorLabel(reply.user_id, reply.author_name) }}</strong>
+          </span>
           <p>{{ reply.comment_text }}</p>
           <time>{{ reply.created_at | date: 'medium' }}</time>
         </div>
@@ -171,6 +177,34 @@ import { PaginationComponent } from '../../../home/components/pagination/paginat
         flex-wrap: wrap;
         justify-content: space-between;
         gap: 8px;
+      }
+      .author-info {
+        display: inline-flex;
+        min-width: 0;
+        align-items: center;
+        gap: 7px;
+        color: #26364d;
+        font-size: 13px;
+      }
+      .author-avatar {
+        display: grid;
+        width: 25px;
+        height: 25px;
+        flex: none;
+        place-items: center;
+        border-radius: 50%;
+        background: #e8efff;
+        color: #315fc4;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .reply-author {
+        font-size: 12px;
+      }
+      .reply-author .author-avatar {
+        width: 22px;
+        height: 22px;
+        font-size: 10px;
       }
       time {
         color: #94a3b8;
@@ -248,8 +282,13 @@ export class CommentSectionComponent {
     });
   }
 
-  authorLabel(userId: string): string {
-    return userId === this.auth.currentUser?.id ? 'You' : 'RentHub member';
+  authorLabel(userId: string, authorName?: string | null): string {
+    return userId === this.auth.currentUser?.id ? 'You' : authorName?.trim() || 'RentHub member';
+  }
+
+  authorInitial(userId: string, authorName?: string | null): string {
+    const label = this.authorLabel(userId, authorName);
+    return label === 'You' ? 'Y' : (label.trim().charAt(0).toUpperCase() || 'R');
   }
 
   private async loadComments(apartmentId = this.apartmentId()): Promise<void> {

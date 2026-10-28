@@ -2,6 +2,7 @@
 import { inject, Injectable } from '@angular/core';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_CLIENT } from '../../../core/config/supabase.client';
+import { ApartmentPeopleService } from '../../apartments/services/apartment-people.service';
 import { Comment } from '../models/comment.model';
 
 export interface CommentPage { items: Comment[]; total: number; }
@@ -11,6 +12,7 @@ export interface CommentPage { items: Comment[]; total: number; }
 })
 export class CommentService {
   private readonly supabase: SupabaseClient = inject(SUPABASE_CLIENT);
+  private readonly apartmentPeople = inject(ApartmentPeopleService);
 
   async getComments(apartmentId: string): Promise<Comment[]> {
     const { data, error } = await this.supabase
@@ -23,7 +25,7 @@ export class CommentService {
       throw new Error(error.message);
     }
 
-    const rows = (data ?? []) as Comment[];
+    const rows = await this.addAuthorNames(apartmentId, (data ?? []) as Comment[]);
     const repliesByParent = new Map<string, Comment[]>();
 
     for (const comment of rows) {
@@ -65,7 +67,29 @@ export class CommentService {
       const group = grouped.get(reply.parent_comment_id!) ?? [];
       group.push(reply); grouped.set(reply.parent_comment_id!, group);
     }
-    return { items: rows.map(row => ({ ...row, replies: grouped.get(row.id) ?? [] })), total: count ?? 0 };
+    const named = await this.addAuthorNames(apartmentId, [...rows, ...replies]);
+    const namedById = new Map(named.map(comment => [comment.id, comment]));
+    return {
+      items: rows.map(row => ({
+        ...namedById.get(row.id)!,
+        replies: (grouped.get(row.id) ?? []).map(reply => namedById.get(reply.id)!),
+      })),
+      total: count ?? 0,
+    };
+  }
+
+  private async addAuthorNames(apartmentId: string, comments: Comment[]): Promise<Comment[]> {
+    try {
+      const people = await this.apartmentPeople.getDisplayNames(apartmentId);
+      const namesByUserId = new Map(people.map(person => [person.user_id, person.display_name]));
+      return comments.map(comment => ({
+        ...comment,
+        author_name: namesByUserId.get(comment.user_id) ?? null,
+      }));
+    } catch {
+      // Keep the comments readable if the optional display-name RPC is not yet installed.
+      return comments.map(comment => ({ ...comment, author_name: null }));
+    }
   }
 
   async addComment(

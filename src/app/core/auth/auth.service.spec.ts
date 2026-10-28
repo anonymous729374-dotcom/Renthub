@@ -20,6 +20,21 @@ describe('AuthService', () => {
         getUser: async () => ({ data: { user }, error: null }),
         signOut: async () => ({ error: null }),
       },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: {
+                full_name: 'Renter',
+                role: 'user',
+                lister_status: 'none',
+                is_suspended: false,
+              },
+              error: null,
+            }),
+          }),
+        }),
+      }),
     };
     TestBed.configureTestingModule({
       providers: [AuthService, provideRouter([]), { provide: SUPABASE_CLIENT, useValue: client }],
@@ -60,6 +75,21 @@ describe('AuthService', () => {
           return { data: { user, session: { user, access_token: 'new-token' } }, error: null };
         },
       },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: {
+                full_name: 'Renter Person',
+                role: 'user',
+                lister_status: 'none',
+                is_suspended: false,
+              },
+              error: null,
+            }),
+          }),
+        }),
+      }),
     };
     TestBed.configureTestingModule({
       providers: [AuthService, provideRouter([]), { provide: SUPABASE_CLIENT, useValue: client }],
@@ -105,12 +135,16 @@ describe('AuthService', () => {
     expect(service.isAuthenticated).toBe(false);
   });
 
-  it('establishes signup auth state without waiting for the profile query', async () => {
+  it('keeps role-dependent state unresolved until the trusted profile query settles', async () => {
     const user = {
       id: 'new-user',
       email: 'renter@example.com',
       user_metadata: { full_name: 'Renter' },
     };
+    let resolveProfile!: (result: {
+      data: { full_name: string; role: string; lister_status: string; is_suspended: boolean };
+      error: null;
+    }) => void;
     const client = {
       auth: {
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => undefined } } }),
@@ -122,18 +156,27 @@ describe('AuthService', () => {
         }),
       },
       from: () => ({
-        select: () => ({ eq: () => ({ maybeSingle: () => new Promise(() => undefined) }) }),
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => new Promise((resolve) => { resolveProfile = resolve; }),
+          }),
+        }),
       }),
     };
     TestBed.configureTestingModule({
       providers: [AuthService, provideRouter([]), { provide: SUPABASE_CLIENT, useValue: client }],
     });
     const service = TestBed.inject(AuthService);
-    const result = await service.signUp({
+    const signup = service.signUp({
       fullName: 'Renter',
       email: 'renter@example.com',
       password: 'valid-password',
     });
+    await Promise.resolve();
+    expect(service.currentUser?.role).toBeNull();
+    expect(service.initializationState).toBe('restoring');
+    resolveProfile({ data: { full_name: 'Renter', role: 'user', lister_status: 'none', is_suspended: false }, error: null });
+    const result = await signup;
     expect(result.authenticated).toBe(true);
     expect(service.isAuthenticated).toBe(true);
     expect(service.currentUser?.role).toBe('user');

@@ -10,7 +10,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
     <main class="page">
       <a routerLink="/" class="back">← Home</a>
       <h1>Profile</h1>
-      <section class="section" aria-labelledby="account-heading">
+      <section class="section account-card" aria-labelledby="account-heading">
         <h2 id="account-heading">Account information</h2>
         <dl>
           <div>
@@ -33,8 +33,13 @@ import { AuthService } from '../../../../core/auth/auth.service';
           RentHub administrator for help.
         </p>
       }
+      @if (auth.currentUser?.role === null) {
+        <p class="error" role="alert">
+          Your account permissions could not be loaded. Please refresh the page or sign in again.
+        </p>
+      }
       @if (auth.currentUser?.role === 'user') {
-        <section class="section" aria-labelledby="lister-heading">
+        <section class="section lister-card" aria-labelledby="lister-heading">
           <h2 id="lister-heading">Apartment lister access</h2>
           @if (auth.currentUser?.listerStatus === 'pending') {
             <p class="status pending" role="status">Request Pending</p>
@@ -85,7 +90,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
         </section>
       }
       @if (auth.currentUser?.role === 'lister' && auth.currentUser?.listerStatus === 'approved') {
-        <section class="section" aria-labelledby="lister-heading">
+        <section class="section lister-card" aria-labelledby="lister-heading">
           <h2 id="lister-heading">Lister status</h2>
           <p class="status approved">Lister Approved</p>
           @if (auth.currentUser?.isSuspended) {
@@ -128,6 +133,23 @@ import { AuthService } from '../../../../core/auth/auth.service';
         padding: 16px 0;
         border-top: 1px solid #e2e8f0;
       }
+      .account-card,
+      .lister-card {
+        padding: 16px;
+        border: 1px solid #e3e7ed;
+        border-radius: 8px;
+        background: #fff;
+      }
+      .lister-card > .status {
+        margin-bottom: 6px;
+      }
+      .lister-card > p:not(.status) {
+        margin: 0 0 12px;
+      }
+      .lister-card .rejected-panel {
+        margin-inline: -16px;
+        padding-inline: 16px;
+      }
       h2 {
         margin: 0 0 12px;
         color: #172033;
@@ -154,6 +176,23 @@ import { AuthService } from '../../../../core/auth/auth.service';
         font-size: 14px;
         font-weight: 600;
         overflow-wrap: anywhere;
+      }
+      @media (max-width: 480px) {
+        .account-card,
+        .lister-card {
+          padding: 13px;
+        }
+        .account-card dl {
+          gap: 12px;
+        }
+        .account-card dl > div {
+          grid-template-columns: 92px minmax(0, 1fr);
+          gap: 8px;
+        }
+        .lister-card .rejected-panel {
+          margin-inline: -13px;
+          padding-inline: 13px;
+        }
       }
       .section p {
         margin: 7px 0 12px;
@@ -248,6 +287,7 @@ export class ProfilePageComponent {
 
   get roleLabel(): string {
     const user = this.auth.currentUser;
+    if (user?.role === null) return 'Account permissions unavailable';
     if (user?.role === 'admin') return 'Admin';
     if (user?.role === 'lister' && user.listerStatus === 'approved')
       return 'Apartment Lister and Renter';

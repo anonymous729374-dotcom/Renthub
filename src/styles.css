@@ -62,7 +62,11 @@ a {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px 24px;
-  margin: 18px 0 16px;
+  margin: 16px 0;
+  padding: 18px 20px;
+  border: 1px solid #e3e7ed;
+  border-radius: 10px;
+  background: #fff;
 }
 .details-page .property-header > div:first-child {
   min-width: 0;
@@ -128,6 +132,41 @@ a {
   color: #64748b;
   font-size: 13px;
   line-height: 1.5;
+}
+.details-page .lister-byline {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 13px;
+  padding: 7px 11px 7px 7px;
+  border: 1px solid #e5ebf4;
+  border-radius: 999px;
+  background: #f8faff;
+}
+.details-page .lister-avatar {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8efff;
+  color: #315fc4;
+  font-size: 13px;
+  font-weight: 750;
+}
+.details-page .lister-copy {
+  display: grid;
+  gap: 1px;
+  line-height: 1.25;
+}
+.details-page .lister-label {
+  color: #778397;
+  font-size: 10px;
+}
+.details-page .lister-copy strong {
+  color: #26364d;
+  font-size: 12px;
+  font-weight: 650;
 }
 .details-page .rent-card {
   display: grid;
@@ -338,6 +377,7 @@ a {
     grid-template-columns: 1fr;
     gap: 10px;
     align-items: start;
+    padding: 15px;
   }
   .details-page .header-actions {
     justify-content: flex-start;
@@ -380,5 +420,762 @@ a {
   }
   .details-page .rent-card {
     grid-column: auto;
+  }
+}
+
+/* RentHub editorial design system */
+:root {
+  --rh-ink: #202a38;
+  --rh-muted: #687587;
+  --rh-blue: #315fc4;
+  --rh-blue-dark: #254da5;
+  --rh-blue-soft: #f0f5ff;
+  --rh-border: #e3e7ed;
+  --rh-surface: #fff;
+  --rh-canvas: #f8f9fb;
+  --rh-danger: #a63f48;
+  --rh-success: #357653;
+  --rh-radius: 8px;
+  --rh-radius-small: 6px;
+  --rh-shadow: 0 3px 12px rgb(25 39 58 / 4%);
+  --rh-content: 1160px;
+  color: var(--rh-ink);
+  background: var(--rh-canvas);
+  font-size: 14px;
+}
+
+body {
+  color: var(--rh-ink);
+  background: var(--rh-canvas);
+  line-height: 1.55;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid rgb(49 95 196 / 30%);
+  outline-offset: 2px;
+}
+
+/* Shared header and footer */
+app-site-header .header {
+  min-height: 62px;
+  padding: 10px max(20px, calc((100% - var(--rh-content)) / 2));
+  gap: 18px;
+  border-color: var(--rh-border);
+  background: var(--rh-surface);
+}
+app-site-header .brand {
+  color: var(--rh-ink);
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.7px;
+}
+app-site-header .brand span,
+app-site-footer strong span {
+  color: var(--rh-blue);
+}
+app-site-header nav {
+  gap: 4px;
+}
+app-site-header nav a,
+app-site-header nav button {
+  min-height: 34px;
+  padding: 7px 9px;
+  border-radius: var(--rh-radius-small);
+  color: #526072;
+  font-size: 12px;
+  font-weight: 550;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+app-site-header nav a:hover,
+app-site-header nav a.active {
+  color: #26364d;
+  background: #f0f2f5;
+}
+app-site-header nav a.active:not(.signup) {
+  background: var(--rh-blue-soft);
+  color: var(--rh-blue-dark);
+  box-shadow: inset 0 -2px 0 var(--rh-blue);
+}
+app-site-header nav a.messages-link.has-unread {
+  background: #e8efff;
+  color: #234b9b;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #c9d8ff;
+}
+app-site-header nav a.messages-link.has-unread .unread-badge {
+  background: #2858b8;
+  box-shadow: 0 0 0 3px #d6e2ff;
+}
+app-site-header nav .signup {
+  padding-inline: 12px;
+  background: var(--rh-blue);
+  color: #fff !important;
+}
+app-site-header nav .signup:hover {
+  background: var(--rh-blue-dark);
+}
+app-site-header nav button {
+  border: 1px solid var(--rh-border);
+  background: #fff;
+  color: #455166;
+}
+app-site-header .welcome {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+app-site-footer .footer {
+  padding: 18px max(20px, calc((100% - var(--rh-content)) / 2));
+  border-color: var(--rh-border);
+  background: #fff;
+}
+
+/* Shared controls, forms, statuses, and compact content surfaces */
+app-home-page button,
+app-login-page button,
+app-signup-page button,
+app-profile-page button,
+app-admin-management-page button,
+app-create-apartment-page button,
+app-edit-apartment-page button,
+app-preview-apartment-page button,
+app-favourites-page button,
+app-apartment-form button {
+  border-radius: var(--rh-radius-small);
+  font-size: 13px;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+app-home-page input:not([type='checkbox']),
+app-home-page select,
+app-login-page input,
+app-signup-page input,
+app-apartment-form input:not([type='checkbox']),
+app-apartment-form textarea,
+app-apartment-form select {
+  min-height: 40px;
+  padding: 9px 11px;
+  border-color: #d6dce5;
+  border-radius: var(--rh-radius-small);
+  color: var(--rh-ink);
+  background: #fff;
+  font-size: 13px;
+}
+app-home-page input:focus,
+app-home-page select:focus,
+app-login-page input:focus,
+app-signup-page input:focus,
+app-apartment-form input:focus,
+app-apartment-form textarea:focus,
+app-apartment-form select:focus {
+  outline: 3px solid rgb(49 95 196 / 15%);
+  border-color: var(--rh-blue);
+}
+app-login-page small,
+app-signup-page small,
+app-profile-page .error,
+app-admin-management-page .error,
+app-create-apartment-page .error,
+app-edit-apartment-page .error {
+  color: var(--rh-danger);
+}
+app-signup-page .success,
+app-profile-page .success,
+app-admin-management-page .success {
+  color: var(--rh-success);
+}
+
+/* Apartment discovery and cards */
+app-home-page .hero {
+  min-height: 0;
+  padding: 30px max(20px, calc((100% - var(--rh-content)) / 2));
+  border-bottom: 1px solid var(--rh-border);
+  background: #fff;
+}
+app-home-page .hero-content {
+  max-width: 680px;
+}
+app-home-page .hero .eyebrow,
+app-home-page .listings-heading .eyebrow,
+app-apartment-filters .eyebrow,
+app-favourites-page .eyebrow,
+app-admin-management-page .eyebrow,
+app-login-page .eyebrow,
+app-signup-page .eyebrow {
+  color: var(--rh-blue);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+}
+app-home-page .hero h1 {
+  max-width: 650px;
+  color: var(--rh-ink);
+  font-size: clamp(27px, 3vw, 38px);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+app-home-page .hero h1 span {
+  color: var(--rh-blue);
+}
+app-home-page .hero-description {
+  max-width: 540px;
+  margin-top: 9px;
+  color: var(--rh-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+app-home-page .hero-decoration {
+  width: 92px;
+  height: 92px;
+  border-color: var(--rh-border);
+  border-radius: 10px;
+  background: var(--rh-blue-soft);
+  transform: none;
+}
+app-home-page .hero-decoration span {
+  font-size: 48px;
+}
+app-home-page .empty-state {
+  min-height: 210px;
+  border: 1px solid var(--rh-border);
+  border-radius: var(--rh-radius);
+  background: #fff;
+}
+app-home-page .page-content {
+  width: min(var(--rh-content), calc(100% - 40px));
+  margin: 20px auto 38px;
+}
+app-home-page .listings-heading {
+  margin-bottom: 13px;
+}
+app-home-page .listings-heading h2 {
+  color: var(--rh-ink);
+  font-size: 21px;
+  font-weight: 650;
+}
+app-home-page .result-count {
+  padding: 4px 8px;
+  border: 1px solid #dfe7f3;
+  border-radius: var(--rh-radius-small);
+  background: #fff;
+  color: #526a91;
+  font-size: 11px;
+}
+app-home-page .apartment-grid,
+app-favourites-page .grid {
+  gap: 15px;
+}
+app-apartment-filters .filters {
+  padding: 16px;
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius);
+  box-shadow: none;
+}
+app-apartment-filters .filter-heading {
+  margin-bottom: 13px;
+}
+app-apartment-filters .filter-heading h2 {
+  color: var(--rh-ink);
+  font-size: 16px;
+  font-weight: 650;
+}
+app-apartment-filters .filter-grid {
+  gap: 11px;
+}
+app-apartment-filters label {
+  gap: 5px;
+  color: #526072;
+  font-size: 11px;
+  font-weight: 600;
+}
+app-apartment-filters .apply-button {
+  min-height: 36px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--rh-blue);
+}
+app-apartment-filters .reset-button {
+  padding: 6px 9px;
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius-small);
+  color: #596679;
+  font-size: 12px;
+}
+app-apartment-card .card {
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius);
+  box-shadow: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+app-apartment-card .card:hover {
+  transform: none;
+  border-color: #c9d4e4;
+  box-shadow: var(--rh-shadow);
+}
+app-apartment-card .photo,
+app-apartment-card .photo-placeholder {
+  height: 184px;
+}
+app-apartment-card .photo-placeholder,
+app-apartment-card .image-wrapper.image-failed::after {
+  background: #f0f3f7;
+}
+app-apartment-card .content {
+  padding: 13px;
+}
+app-apartment-card .location,
+app-apartment-card .address {
+  color: var(--rh-muted);
+  font-size: 11px;
+}
+app-apartment-card .title-link h3 {
+  color: var(--rh-ink);
+  font-size: 15px;
+  font-weight: 650;
+}
+app-apartment-card .facts {
+  gap: 8px;
+  color: #566477;
+  font-size: 11px;
+}
+app-apartment-card .amenity {
+  border: 1px solid #edf0f4;
+  border-radius: 5px;
+  background: #f7f8fa;
+  color: #566477;
+  font-size: 10px;
+}
+app-apartment-card .price {
+  color: var(--rh-blue-dark);
+  font-size: 17px;
+  font-weight: 700;
+}
+app-apartment-card .favourite-button {
+  width: 34px;
+  height: 34px;
+  box-shadow: none;
+}
+app-pagination .pagination button {
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius-small);
+  font-size: 12px;
+}
+app-pagination .pagination .page-number.active {
+  border-color: var(--rh-blue);
+  background: var(--rh-blue);
+}
+
+/* Account pages, dashboards, and listing forms */
+app-login-page .auth-page,
+app-signup-page .auth-page {
+  min-height: 65vh;
+  background: var(--rh-canvas);
+}
+app-login-page .auth-card,
+app-signup-page .auth-card {
+  max-width: 420px;
+  gap: 9px;
+  padding: 24px;
+  border-color: var(--rh-border);
+  border-radius: 9px;
+  box-shadow: var(--rh-shadow);
+}
+app-login-page .eyebrow,
+app-signup-page .eyebrow {
+  margin-top: 5px;
+}
+app-login-page h1,
+app-signup-page h1,
+app-profile-page h1,
+app-admin-management-page h1,
+app-favourites-page h1,
+app-create-apartment-page h1,
+app-edit-apartment-page h1,
+app-my-apartments-page h1,
+app-preview-apartment-page h1 {
+  color: var(--rh-ink);
+  font-size: clamp(23px, 2vw, 29px);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+app-login-page .auth-card label,
+app-signup-page .auth-card label {
+  color: #4e5b6d;
+  font-size: 12px;
+  font-weight: 600;
+}
+app-login-page .auth-card button,
+app-signup-page .auth-card button {
+  min-height: 39px;
+  padding: 9px 14px;
+  background: var(--rh-blue);
+}
+app-profile-page .page,
+app-favourites-page .page,
+app-admin-management-page .page,
+app-create-apartment-page .page,
+app-edit-apartment-page .page,
+app-my-apartments-page .page,
+app-preview-apartment-page .page {
+  width: min(var(--rh-content), calc(100% - 40px));
+  padding-top: 23px;
+  padding-bottom: 42px;
+}
+app-profile-page .section,
+app-admin-management-page .panel,
+app-edit-apartment-page .card,
+app-preview-apartment-page .preview-card {
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius);
+  background: #fff;
+  box-shadow: none;
+}
+app-profile-page h2,
+app-admin-management-page .panel h2,
+app-my-apartments-page h2 {
+  color: var(--rh-ink);
+  font-size: 16px;
+  font-weight: 650;
+}
+app-profile-page .rejected-panel,
+app-profile-page .suspended {
+  border-color: #efd9dc;
+  border-radius: var(--rh-radius-small);
+  background: #fcf5f5;
+  color: #89454b;
+}
+app-admin-management-page .panel {
+  margin-top: 17px;
+  padding: 17px;
+}
+app-admin-management-page .user-row,
+app-admin-management-page .listing-row {
+  gap: 14px;
+  border-color: #edf0f4;
+}
+app-admin-management-page .actions a {
+  color: var(--rh-blue-dark);
+  font-size: 12px;
+}
+app-admin-management-page button:not(.danger) {
+  background: var(--rh-blue);
+}
+app-admin-management-page .danger,
+app-edit-apartment-page .danger-zone button {
+  background: #a63f48;
+}
+app-apartment-form .apartment-form {
+  gap: 18px;
+}
+app-apartment-form .section-heading h2 {
+  color: var(--rh-ink);
+  font-size: 17px;
+  font-weight: 650;
+}
+app-apartment-form .field > label:not(.check-option),
+app-apartment-form legend {
+  color: #4e5b6d;
+  font-size: 12px;
+  font-weight: 600;
+}
+app-apartment-form button {
+  min-height: 37px;
+  padding: 8px 12px;
+}
+app-apartment-form .primary-button,
+app-preview-apartment-page button {
+  background: var(--rh-blue);
+}
+app-apartment-form .secondary-button,
+app-preview-apartment-page .secondary {
+  border: 1px solid var(--rh-border);
+  background: #fff;
+}
+app-favourites-page header {
+  margin: 20px 0;
+}
+app-favourites-page h1 {
+  margin: 4px 0;
+}
+app-favourites-page .empty {
+  padding: 32px 20px;
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius);
+  background: #fff;
+}
+app-favourites-page .primary-button,
+app-favourites-page button {
+  border-radius: var(--rh-radius-small);
+  background: var(--rh-blue);
+}
+app-preview-apartment-page .preview-card {
+  gap: 14px;
+  padding: 20px;
+}
+app-preview-apartment-page .hero {
+  padding: 16px;
+  border-radius: var(--rh-radius-small);
+  border-left: 3px solid #9db7e7;
+  background: var(--rh-blue-soft);
+}
+
+/* Shared conversation and comment reading surfaces */
+app-messages-page .messages-page {
+  width: min(var(--rh-content), calc(100% - 40px));
+  padding: 20px 0 34px;
+}
+app-messages-page .chat-layout {
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius);
+  box-shadow: var(--rh-shadow);
+}
+app-messages-page .conversation-item:hover,
+app-messages-page .conversation-item.selected {
+  background: #f3f6fb;
+}
+app-messages-page .message-history {
+  background: #fafbfd;
+}
+app-messages-page .bubble.mine {
+  border-color: #dce6f5;
+  background: #f1f5fc;
+}
+app-messages-page .composer textarea {
+  border-color: #d6dce5;
+  border-radius: var(--rh-radius-small);
+}
+app-comment-section .comment-form textarea,
+app-comment-section textarea {
+  border-color: #d6dce5;
+  border-radius: var(--rh-radius-small);
+}
+app-comment-section button {
+  border-radius: var(--rh-radius-small);
+}
+app-comment-section .comment {
+  padding: 11px 0;
+  border-color: #edf0f4;
+}
+app-comment-section .comment-text,
+app-comment-section .reply p {
+  color: #465367;
+  font-size: 13px;
+  line-height: 1.6;
+}
+app-comment-section .reply {
+  margin-top: 9px;
+  padding: 9px 11px;
+  border-left-color: #c5d3e8;
+  border-radius: 0 var(--rh-radius-small) var(--rh-radius-small) 0;
+  background: #f7f9fc;
+}
+app-comment-section textarea,
+app-comment-section input {
+  min-height: 38px;
+}
+app-comment-section .comment-form textarea {
+  min-height: 66px;
+}
+app-my-apartments-page header {
+  margin: 20px 0;
+}
+app-my-apartments-page .listing {
+  gap: 14px;
+  padding: 12px;
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius);
+  box-shadow: none;
+}
+app-my-apartments-page .primary,
+app-my-apartments-page .edit {
+  border-radius: var(--rh-radius-small);
+  background: var(--rh-blue);
+  font-size: 12px;
+}
+app-my-apartments-page .status {
+  border-radius: 5px;
+  font-size: 10px;
+}
+app-apartment-details-page .details-page {
+  color: var(--rh-ink);
+  background: var(--rh-canvas);
+}
+app-apartment-details-page .property-header {
+  margin: 14px 0;
+}
+app-apartment-details-page .info-card {
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius);
+  box-shadow: none;
+}
+app-apartment-details-page h1 {
+  color: var(--rh-ink);
+  font-size: clamp(22px, 2.5vw, 29px);
+  font-weight: 650;
+}
+app-apartment-details-page .photo-gallery img,
+app-apartment-details-page .photo-placeholder {
+  border-radius: var(--rh-radius);
+}
+app-apartment-details-page .photo-placeholder,
+app-apartment-details-page .photo-gallery.image-failed::after {
+  background: #f0f3f7;
+}
+app-apartment-details-page .primary-button {
+  background: var(--rh-blue);
+}
+app-empty-state .empty {
+  border-color: var(--rh-border);
+  border-radius: var(--rh-radius);
+  background: #fff;
+}
+
+/* Fine responsive adjustments shared by the feature layouts */
+@media (max-width: 720px) {
+  app-site-header .header {
+    align-items: center;
+    padding: 10px 16px;
+  }
+  app-site-header nav {
+    gap: 2px;
+  }
+  app-site-header nav a,
+  app-site-header nav button {
+    padding: 6px 7px;
+    font-size: 11px;
+  }
+  app-home-page .hero {
+    padding: 24px 18px;
+  }
+  app-home-page .hero-decoration {
+    display: none;
+  }
+  app-home-page .page-content,
+  app-profile-page .page,
+  app-favourites-page .page,
+  app-admin-management-page .page,
+  app-create-apartment-page .page,
+  app-edit-apartment-page .page,
+  app-my-apartments-page .page,
+  app-preview-apartment-page .page,
+  app-messages-page .messages-page {
+    width: calc(100% - 28px);
+  }
+}
+
+/* Admin apartment actions: keep the controls anchored to their listing row. */
+app-admin-management-page .listing-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+app-admin-management-page .listing-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+app-admin-management-page .listing-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+app-admin-management-page .listing-actions a,
+app-admin-management-page .listing-actions button {
+  display: inline-flex;
+  min-width: 68px;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 11px;
+  border: 1px solid #dce4ef;
+  border-radius: 6px;
+  background: #f5f8fd;
+  color: #315fc4;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+app-admin-management-page .listing-actions a:hover {
+  border-color: #bdcce2;
+  background: #edf3fb;
+}
+app-admin-management-page .listing-actions button.danger {
+  border-color: #e6c6ca;
+  background: #fbf1f2;
+  color: #a63f48;
+}
+app-admin-management-page .listing-actions button.danger:hover:not(:disabled) {
+  background: #f6e5e7;
+}
+
+/* Keep pagination controls distinct from the admin panel's blue action buttons. */
+app-admin-management-page app-pagination .pagination button {
+  border-color: var(--rh-border);
+  background: #fff;
+  color: #315fc4;
+}
+app-admin-management-page app-pagination .pagination button:hover:not(:disabled):not(.active) {
+  background: #f3f6fb;
+}
+app-admin-management-page app-pagination .pagination button:disabled {
+  border-color: #e3e7ed;
+  background: #f1f3f6;
+  color: #727e8f;
+  opacity: 1;
+}
+app-admin-management-page app-pagination .pagination .page-number.active {
+  border-color: var(--rh-blue);
+  background: var(--rh-blue);
+  color: #fff;
+}
+
+@media (max-width: 650px) {
+  app-admin-management-page .listing-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  app-admin-management-page .listing-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  app-admin-management-page .listing-actions a,
+  app-admin-management-page .listing-actions button {
+    flex: 1 1 82px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

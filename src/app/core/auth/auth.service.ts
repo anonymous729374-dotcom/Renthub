@@ -39,17 +39,48 @@ export class AuthService {
     'restoring',
   );
   readonly initializationState$ = this.initializationStateSubject.asObservable();
-  private initialized = false;
   private initialization: Promise<void> | null = null;
-  private authEventObserved = false;
+  private profileResolution: Promise<void> | null = null;
+  private profileResolutionUserId: string | null = null;
+  private authGeneration = 0;
 
   constructor() {
     const { data } = this.supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, session: Session | null) => {
-        this.authEventObserved = true;
+      (event: AuthChangeEvent, session: Session | null) => {
         const user = session?.user ?? null;
-        this.setUser(user);
-        if (user) queueMicrotask(() => void this.hydrateProfile(user.id));
+        if (event === 'INITIAL_SESSION') return;
+        if (!user) {
+          this.authGeneration++;
+          this.profileResolution = null;
+          this.profileResolutionUserId = null;
+          this.initialization = null;
+          this.setUser(null);
+          this.markInitialized();
+          return;
+        }
+        if (event === 'TOKEN_REFRESHED' && this.currentUser?.id === user.id) return;
+        if (
+          this.currentUser?.id === user.id &&
+          this.profileResolutionUserId === user.id &&
+          this.profileResolution !== null &&
+          this.initializationState === 'restoring'
+        ) {
+          return;
+        }
+        if (
+          this.currentUser?.id === user.id &&
+          this.currentUser.role !== null &&
+          this.initializationState === 'ready'
+        ) {
+          return;
+        }
+        this.authGeneration++;
+        this.profileResolution = null;
+        this.profileResolutionUserId = null;
+        this.initialization = null;
+        this.initializationStateSubject.next('restoring');
+        this.setUser(user, null);
+        queueMicrotask(() => void this.resolveUserProfile(user));
       },
     );
     this.destroyRef.onDestroy(() => data.subscription.unsubscribe());
@@ -67,11 +98,13 @@ export class AuthService {
   }
 
   initialize(): Promise<void> {
-    if (this.initialized) return Promise.resolve();
+    if (this.initializationState === 'ready' || this.initializationState === 'error')
+      return Promise.resolve();
+    if (this.profileResolution && this.initializationState === 'restoring')
+      return this.profileResolution;
     if (!this.initialization) {
       this.initializationStateSubject.next('restoring');
       this.initialization = this.restoreUser().catch((error: unknown) => {
-        this.initialization = null;
         this.initializationStateSubject.next('error');
         throw error;
       });
@@ -83,18 +116,18 @@ export class AuthService {
     const { data, error } = await this.supabase.auth.getSession();
     if (error) throw error;
     if (!data.session) {
-      if (!this.authEventObserved) this.setUser(null);
-      this.markInitialized();
+      if (this.profileResolution && this.initializationState === 'restoring') {
+        await this.profileResolution;
+      } else {
+        this.setUser(null);
+        this.markInitialized();
+      }
       return;
     }
     // getSession() restores the SDK-managed persisted session (and refreshes it
     // when needed). Avoid a second auth network request here: transient getUser
     // failures must not turn a valid restored session into a logged-out UI.
-    const restoredUser = data.session.user;
-    const profile = await this.readProfile(restoredUser.id);
-    if (!this.authEventObserved || this.currentUser?.id === restoredUser.id)
-      this.setUser(restoredUser, profile);
-    this.markInitialized();
+    await this.resolveUserProfile(data.session.user);
   }
 
   async signUp(credentials: SignupCredentials): Promise<{ authenticated: boolean }> {
@@ -109,15 +142,17 @@ export class AuthService {
     // Confirmation settings are controlled by Supabase. Trust the response, not
     // an assumption that signup always creates an authenticated session.
     if (!data.session || !data.user) {
+      this.authGeneration++;
+      this.profileResolution = null;
+      this.profileResolutionUserId = null;
+      this.initialization = null;
+      this.setUser(null);
       this.markInitialized();
       return { authenticated: false };
     }
 
-    // Establish the authenticated renter immediately. Profile lookup is
-    // secondary metadata and must not hold up header state or signup routing.
-    this.setUser(data.user);
-    this.markInitialized();
-    void this.hydrateProfile(data.user.id);
+    // Resolve trusted profile permissions before exposing role-based navigation.
+    await this.resolveUserProfile(data.user);
     return { authenticated: true };
   }
 
@@ -129,8 +164,7 @@ export class AuthService {
     if (error) throw error;
     if (!data.session || !data.user)
       throw new Error('Supabase did not return an active session. Please try signing in again.');
-    this.setUser(data.user, await this.readProfile(data.user.id));
-    this.markInitialized();
+    await this.resolveUserProfile(data.user);
   }
 
   async signOut(): Promise<void> {
@@ -139,6 +173,10 @@ export class AuthService {
       if (error) throw error;
     } finally {
       // Clear local app state even if a remote auth request fails.
+      this.authGeneration++;
+      this.profileResolution = null;
+      this.profileResolutionUserId = null;
+      this.initialization = null;
       this.setUser(null);
       this.markInitialized();
       await this.router.navigate(['/login']);
@@ -199,28 +237,65 @@ export class AuthService {
     return { items: (data ?? []) as AdminProfileRecord[], total: count ?? 0 };
   }
 
-  private async hydrateProfile(userId: string): Promise<void> {
-    try {
-      if (this.currentUser?.id !== userId) return;
-      const { data } = await this.supabase.auth.getUser();
-      if (data.user?.id === userId) this.setUser(data.user, await this.readProfile(userId));
-    } catch {
-      // Keep the safe renter defaults already set from the authenticated user.
+  private resolveUserProfile(user: User): Promise<void> {
+    if (
+      this.profileResolution &&
+      this.profileResolutionUserId === user.id &&
+      this.initializationState === 'restoring'
+    ) {
+      return this.profileResolution;
     }
+
+    if (
+      this.currentUser?.id === user.id &&
+      this.currentUser.role !== null &&
+      this.initializationState === 'ready'
+    ) {
+      return Promise.resolve();
+    }
+
+    const generation = ++this.authGeneration;
+    this.initializationStateSubject.next('restoring');
+    this.profileResolutionUserId = user.id;
+    this.setUser(user, null);
+    const resolution = (async () => {
+      try {
+        const profile = await this.readProfile(user.id);
+        if (generation !== this.authGeneration) return;
+        if (
+          !profile ||
+          !profile.role ||
+          !profile.lister_status ||
+          typeof profile.is_suspended !== 'boolean'
+        ) {
+          this.setUser(user, null);
+          this.initializationStateSubject.next('error');
+          return;
+        }
+        this.setUser(user, profile);
+        this.markInitialized();
+      } catch {
+        if (generation !== this.authGeneration) return;
+        // Keep the authenticated identity, but leave role/approval/suspension
+        // unknown so the UI and guards fail closed instead of assuming renter.
+        this.setUser(user, null);
+        this.initializationStateSubject.next('error');
+      }
+    })();
+    this.profileResolution = resolution;
+    this.initialization = resolution;
+    return resolution;
   }
 
   private async readProfile(userId: string): Promise<ProfileRecord | null> {
-    try {
-      const { data, error } = await this.supabase
-        .from('profiles')
-        .select('full_name,role,lister_status,is_suspended')
-        .eq('id', userId)
-        .maybeSingle();
-      if (error || !data) return null;
-      return data as ProfileRecord;
-    } catch {
-      return null;
-    }
+    const { data, error } = await this.supabase
+      .from('profiles')
+      .select('full_name,role,lister_status,is_suspended')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return data as ProfileRecord;
   }
 
   private setUser(user: User | null, profile?: ProfileRecord | null): void {
@@ -233,14 +308,13 @@ export class AuthService {
       email: user.email ?? '',
       fullName:
         profile?.full_name ?? (user.user_metadata?.['full_name'] as string | undefined) ?? '',
-      role: profile?.role ?? 'user',
-      listerStatus: profile?.lister_status ?? 'none',
-      isSuspended: profile?.is_suspended ?? false,
+      role: profile?.role ?? null,
+      listerStatus: profile?.lister_status ?? null,
+      isSuspended: profile?.is_suspended ?? null,
     });
   }
 
   private markInitialized(): void {
-    this.initialized = true;
     this.initializationStateSubject.next('ready');
   }
 }

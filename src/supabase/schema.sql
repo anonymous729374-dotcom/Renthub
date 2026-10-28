@@ -842,3 +842,12 @@ USING (
 -- Location-aware progressive apartment search is installed separately by
 -- migrations/20261102_location_aware_apartment_search.sql. Apply that migration
 -- after this base schema; the Angular location filter calls its SECURITY INVOKER RPC.
+
+-- Apartment and comment author display names are installed separately by
+-- migrations/20261103_apartment_and_comment_display_names.sql. The scoped
+-- SECURITY DEFINER RPC returns names only for a visible apartment's owner and
+-- commenters; it does not expose emails or unrestricted profile rows.
+
+-- migrations/20261104_enable_message_realtime.sql adds inquiry_messages to
+-- Supabase Realtime for prompt unread-count refreshes. Existing participant
+-- RLS policies still control which message events authenticated users receive.

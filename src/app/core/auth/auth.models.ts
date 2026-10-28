@@ -15,7 +15,7 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
-  role: ApplicationRole;
-  listerStatus: ListerApplicationStatus;
-  isSuspended: boolean;
+  role: ApplicationRole | null;
+  listerStatus: ListerApplicationStatus | null;
+  isSuspended: boolean | null;
 }

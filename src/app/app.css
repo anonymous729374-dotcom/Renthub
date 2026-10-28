@@ -8,6 +8,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--rh-canvas, #f8f9fb);
 }
 
 .site-header {
@@ -72,6 +73,7 @@
 
 main {
   flex: 1;
+  min-width: 0;
 }
 
 .site-footer {
