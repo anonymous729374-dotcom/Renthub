@@ -84,7 +84,7 @@ describe('SiteHeaderComponent', () => {
     initializationSubject.next('ready');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('a[href="/admin"]').length).toBe(1);
-    expect(fixture.nativeElement.querySelectorAll('a[href="/apartments/new"]').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('a[href="/apartments/new"]').length).toBe(0);
     expect(fixture.nativeElement.querySelectorAll('a[href="/my-apartments"]').length).toBe(1);
   });
 
@@ -99,7 +99,8 @@ describe('SiteHeaderComponent', () => {
     };
     const { fixture, router } = await setup(admin);
     expect(fixture.nativeElement.querySelectorAll('a[href="/admin"]').length).toBe(1);
-    expect(fixture.nativeElement.querySelectorAll('a[href="/apartments/new"]').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('a[href="/apartments/new"]').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('a[href="/my-apartments"]').length).toBe(1);
 
     await router.navigateByUrl('/login');
     fixture.detectChanges();

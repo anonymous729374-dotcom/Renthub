@@ -64,7 +64,6 @@ import { UnreadMessagesService } from '../../../features/inquiries/services/unre
                     ((user.role === 'lister' && user.listerStatus === 'approved') ||
                       user.role === 'admin')
                   ) {
-                    <a routerLink="/apartments/new" routerLinkActive="active">List an Apartment</a>
                     <a routerLink="/my-apartments" routerLinkActive="active">My Listings</a>
                   }
                   @if (user.isSuspended === false && user.role === 'admin') {
