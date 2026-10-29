@@ -46,6 +46,7 @@ export class MessagesPageComponent implements OnInit {
   private lastApartmentParam: string | null | undefined;
   private refreshing = false;
   private listRequestId = 0;
+  private readonly inaccessibleConversationIds = new Set<string>();
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
@@ -83,11 +84,17 @@ export class MessagesPageComponent implements OnInit {
     this.selectionError.set('');
     try {
       const pageData = await this.inquiryService.getConversationPage(this.page(), this.pageSize);
-      let inquiries = pageData.items;
-      this.total.set(pageData.total);
+      let inquiries = pageData.items.filter(
+        (item) => !this.inaccessibleConversationIds.has(item.id),
+      );
+      this.total.set(Math.max(0, pageData.total - this.inaccessibleConversationIds.size));
       if (inquiries.length === 0 && this.page() > 1) { this.page.update(value => value - 1); await this.loadConversations(conversationId, apartmentId); return; }
       let requestedConversation: Inquiry | null = null;
-      if (conversationId && !inquiries.some(item => item.id === conversationId)) {
+      if (
+        conversationId &&
+        !this.inaccessibleConversationIds.has(conversationId) &&
+        !inquiries.some(item => item.id === conversationId)
+      ) {
         requestedConversation = await this.inquiryService.getConversation(conversationId);
       }
       if (requestId !== this.listRequestId) return;
@@ -180,6 +187,11 @@ export class MessagesPageComponent implements OnInit {
   }
 
   private activateById(id: string, apartmentId: string | null = null): void {
+    if (this.inaccessibleConversationIds.has(id)) {
+      this.selectionError.set('');
+      this.clearConversationQuery();
+      return;
+    }
     const inquiry = this.conversations().find((item) => item.id === id);
     if (!inquiry) {
       this.selected.set(null);
@@ -280,10 +292,36 @@ export class MessagesPageComponent implements OnInit {
       this.replaceConversation(updated);
       void this.unreadMessages.refreshNow();
     } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        error.message.toLowerCase().includes(
+          'conversation not found or the current user is not a participant',
+        )
+      ) {
+        this.dismissInaccessibleConversation(inquiry.id);
+        return;
+      }
       this.chatError.set(
         error instanceof Error ? error.message : 'Unable to mark this conversation as read.',
       );
     }
+  }
+
+  private dismissInaccessibleConversation(inquiryId: string): void {
+    this.inaccessibleConversationIds.add(inquiryId);
+    const wasVisible = this.conversations().some((item) => item.id === inquiryId);
+    this.conversations.update((items) => items.filter((item) => item.id !== inquiryId));
+    if (wasVisible) this.total.update((count) => Math.max(0, count - 1));
+
+    if (this.selected()?.id === inquiryId) {
+      this.selected.set(null);
+      this.draft = '';
+      this.chatError.set('');
+      this.refreshError.set('');
+      this.clearConversationQuery();
+    }
+    this.selectionError.set('');
+    void this.unreadMessages.refreshNow();
   }
 
   private async refreshActiveMessages(): Promise<void> {
@@ -309,11 +347,17 @@ export class MessagesPageComponent implements OnInit {
     try {
       if (!this.auth.currentUser) return;
       const pageData = await this.inquiryService.getConversationPage(this.page(), this.pageSize);
-      let current = pageData.items;
-      this.total.set(pageData.total);
+      let current = pageData.items.filter(
+        (item) => !this.inaccessibleConversationIds.has(item.id),
+      );
+      this.total.set(Math.max(0, pageData.total - this.inaccessibleConversationIds.size));
       if (!current.length && this.page() > 1) { this.page.update(value => value - 1); await this.loadConversations(this.selected()?.id ?? null, null); return; }
       const activeBeforeRefresh = this.selected();
-      if (activeBeforeRefresh && !current.some(item => item.id === activeBeforeRefresh.id)) {
+      if (
+        activeBeforeRefresh &&
+        !this.inaccessibleConversationIds.has(activeBeforeRefresh.id) &&
+        !current.some(item => item.id === activeBeforeRefresh.id)
+      ) {
         const stillAccessible = await this.inquiryService.getConversation(activeBeforeRefresh.id);
         if (stillAccessible) current = [...current, stillAccessible];
       }
@@ -335,7 +379,11 @@ export class MessagesPageComponent implements OnInit {
       this.participantNames.set(nameMap);
       const refreshedAll = current.map((item) => ({ ...item, messages: grouped.get(item.id) ?? [] }));
       refreshedAll.sort((a, b) => this.latestTimestamp(b).localeCompare(this.latestTimestamp(a)));
-      const pageIds = new Set(pageData.items.map(item => item.id));
+      const pageIds = new Set(
+        pageData.items
+          .filter((item) => !this.inaccessibleConversationIds.has(item.id))
+          .map((item) => item.id),
+      );
       const refreshed = refreshedAll.filter(item => pageIds.has(item.id));
       this.conversations.set(refreshed);
       if (!refreshed.length) this.selectionError.set('');
