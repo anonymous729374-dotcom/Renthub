@@ -98,7 +98,10 @@ export class SignupPageComponent {
 
     try {
       const values = this.form.getRawValue();
-      const result = await this.auth.signUp({ ...values, email: values.email.trim() });
+      const result = await this.auth.signUp(
+        { ...values, email: values.email.trim() },
+        { waitForProfile: false },
+      );
 
       if (result.authenticated) {
         const navigated = await this.router.navigateByUrl('/');

@@ -84,7 +84,10 @@ export class LoginPageComponent {
 
     try {
       const values = this.form.getRawValue();
-      await this.auth.signIn({ ...values, email: values.email.trim() });
+      await this.auth.signIn(
+        { ...values, email: values.email.trim() },
+        { waitForProfile: false },
+      );
       const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
       const isSafeInternalUrl = !!returnUrl
         && /^\/(?![\\/])/.test(returnUrl)

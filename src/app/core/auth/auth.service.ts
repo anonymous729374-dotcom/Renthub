@@ -27,6 +27,7 @@ export type AdminProfileRecord = {
   created_at: string;
 };
 export type AuthInitializationState = 'restoring' | 'ready' | 'error';
+export type AuthFlowOptions = { waitForProfile?: boolean };
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -130,7 +131,10 @@ export class AuthService {
     await this.resolveUserProfile(data.session.user);
   }
 
-  async signUp(credentials: SignupCredentials): Promise<{ authenticated: boolean }> {
+  async signUp(
+    credentials: SignupCredentials,
+    { waitForProfile = true }: AuthFlowOptions = {},
+  ): Promise<{ authenticated: boolean }> {
     const email = credentials.email.trim();
     const { data, error } = await this.supabase.auth.signUp({
       email,
@@ -151,12 +155,17 @@ export class AuthService {
       return { authenticated: false };
     }
 
-    // Resolve trusted profile permissions before exposing role-based navigation.
-    await this.resolveUserProfile(data.user);
+    // Start trusted role loading immediately. Public post-auth navigation can
+    // proceed while role-dependent UI and protected routes remain fail-closed.
+    const profileResolution = this.resolveUserProfile(data.user);
+    if (waitForProfile) await profileResolution;
     return { authenticated: true };
   }
 
-  async signIn(credentials: AuthCredentials): Promise<void> {
+  async signIn(
+    credentials: AuthCredentials,
+    { waitForProfile = true }: AuthFlowOptions = {},
+  ): Promise<void> {
     const { data, error } = await this.supabase.auth.signInWithPassword({
       ...credentials,
       email: credentials.email.trim(),
@@ -164,7 +173,8 @@ export class AuthService {
     if (error) throw error;
     if (!data.session || !data.user)
       throw new Error('Supabase did not return an active session. Please try signing in again.');
-    await this.resolveUserProfile(data.user);
+    const profileResolution = this.resolveUserProfile(data.user);
+    if (waitForProfile) await profileResolution;
   }
 
   async signOut(): Promise<void> {

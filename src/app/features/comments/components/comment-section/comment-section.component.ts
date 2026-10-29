@@ -19,22 +19,30 @@ import { PaginationComponent } from '../../../home/components/pagination/paginat
         {{ errorMessage() }}
       </p>
 
-      <form *ngIf="auth.user$ | async as user" (ngSubmit)="addComment()" class="comment-form">
-        <label for="commentText">Add a comment or question</label>
-        <textarea
-          id="commentText"
-          name="commentText"
-          [(ngModel)]="newComment"
-          required
-          minlength="2"
-          maxlength="2000"
-          rows="2"
-          placeholder="Ask a question about this apartment..."
-        ></textarea>
-        <button type="submit" [disabled]="submitting() || newComment.trim().length < 2">
-          {{ submitting() ? 'Posting...' : 'Post comment' }}
-        </button>
-      </form>
+      @if (auth.user$ | async; as user) {
+        @if (user.isSuspended === false) {
+          <form (ngSubmit)="addComment()" class="comment-form">
+            <label for="commentText">Add a comment or question</label>
+            <textarea
+              id="commentText"
+              name="commentText"
+              [(ngModel)]="newComment"
+              required
+              minlength="2"
+              maxlength="2000"
+              rows="2"
+              placeholder="Ask a question about this apartment..."
+            ></textarea>
+            <button type="submit" [disabled]="submitting() || newComment.trim().length < 2">
+              {{ submitting() ? 'Posting...' : 'Post comment' }}
+            </button>
+          </form>
+        } @else if (user.isSuspended === true) {
+          <p class="muted" role="status">Your account is suspended. You can read comments, but can’t post or reply.</p>
+        } @else {
+          <p class="muted" role="status">Checking your account permissions…</p>
+        }
+      }
 
       <p *ngIf="!(auth.user$ | async)" class="muted">
         <a [routerLink]="['/login']" [queryParams]="{ returnUrl: '/apartments/' + apartmentId() }"
@@ -57,7 +65,7 @@ import { PaginationComponent } from '../../../home/components/pagination/paginat
         </div>
 
         <p class="comment-text">{{ comment.comment_text }}</p>
-        @if (auth.currentUser?.id === comment.user_id) {
+        @if (auth.currentUser?.id === comment.user_id && auth.currentUser?.isSuspended === false) {
           <div class="owner-actions">
             <button type="button" (click)="startEdit(comment)" [disabled]="submitting()">
               Edit</button
@@ -66,7 +74,7 @@ import { PaginationComponent } from '../../../home/components/pagination/paginat
             </button>
           </div>
         }
-        @if (editingId() === comment.id) {
+        @if (editingId() === comment.id && auth.currentUser?.isSuspended === false) {
           <form class="edit-form" (ngSubmit)="saveEdit(comment)">
             <label [for]="'edit-' + comment.id">Edit your comment</label
             ><textarea
@@ -83,20 +91,22 @@ import { PaginationComponent } from '../../../home/components/pagination/paginat
           </form>
         }
 
-        <form *ngIf="auth.user$ | async" (ngSubmit)="replyTo(comment.id)" class="reply-form">
-          <input
-            [name]="'reply-' + comment.id"
-            [(ngModel)]="replies[comment.id]"
-            placeholder="Write a reply..."
-            maxlength="2000"
-          />
-          <button
-            type="submit"
-            [disabled]="submitting() || (replies[comment.id] || '').trim().length < 2"
-          >
-            Reply
-          </button>
-        </form>
+        @if (auth.currentUser?.isSuspended === false) {
+          <form (ngSubmit)="replyTo(comment.id)" class="reply-form">
+            <input
+              [name]="'reply-' + comment.id"
+              [(ngModel)]="replies[comment.id]"
+              placeholder="Write a reply..."
+              maxlength="2000"
+            />
+            <button
+              type="submit"
+              [disabled]="submitting() || (replies[comment.id] || '').trim().length < 2"
+            >
+              Reply
+            </button>
+          </form>
+        }
 
         <div *ngFor="let reply of comment.replies || []" class="reply">
           <span class="author-info reply-author">
@@ -305,7 +315,6 @@ export class CommentSectionComponent {
       this.comments.set(result.items);
     } catch (error: unknown) {
       if (requestId !== this.loadRequestId) return;
-      console.error('Failed to load comments:', error);
       this.errorMessage.set('Unable to load comments right now.');
     } finally {
       if (requestId === this.loadRequestId) this.loading.set(false);
@@ -325,8 +334,9 @@ export class CommentSectionComponent {
       this.page.set(Math.max(1, Math.ceil((this.total() + 1) / this.pageSize)));
       await this.loadComments();
     } catch (error: unknown) {
-      console.error('Failed to post comment:', error);
-      this.errorMessage.set(error instanceof Error ? error.message : 'Unable to post comment.');
+      this.errorMessage.set(
+        this.writeError(error, 'Unable to post your comment right now.', 'post or reply'),
+      );
     } finally {
       this.submitting.set(false);
     }
@@ -345,8 +355,9 @@ export class CommentSectionComponent {
       this.replies[parentCommentId] = '';
       await this.loadComments();
     } catch (error: unknown) {
-      console.error('Failed to post reply:', error);
-      this.errorMessage.set(error instanceof Error ? error.message : 'Unable to post reply.');
+      this.errorMessage.set(
+        this.writeError(error, 'Unable to post your reply right now.', 'post or reply'),
+      );
     } finally {
       this.submitting.set(false);
     }
@@ -366,7 +377,9 @@ export class CommentSectionComponent {
       this.editingId.set('');
       await this.loadComments();
     } catch (error: unknown) {
-      this.errorMessage.set(error instanceof Error ? error.message : 'Unable to update comment.');
+      this.errorMessage.set(
+        this.writeError(error, 'Unable to update your comment right now.', 'edit or delete'),
+      );
     } finally {
       this.submitting.set(false);
     }
@@ -380,11 +393,30 @@ export class CommentSectionComponent {
       await this.commentService.deleteComment(comment.id);
       await this.loadComments();
     } catch (error: unknown) {
-      this.errorMessage.set(error instanceof Error ? error.message : 'Unable to delete comment.');
+      this.errorMessage.set(
+        this.writeError(error, 'Unable to delete your comment right now.', 'edit or delete'),
+      );
     } finally {
       this.submitting.set(false);
     }
   }
 
   changePage(page: number): void { this.page.set(page); void this.loadComments(); }
+
+  private writeError(error: unknown, fallback: string, action: string): string {
+    if (this.auth.currentUser?.isSuspended === true) {
+      return `Your account is suspended. You can read comments, but can’t ${action} comments.`;
+    }
+
+    const value = error as { code?: unknown; message?: unknown } | null;
+    const code = typeof value?.code === 'string' ? value.code : '';
+    const message = typeof value?.message === 'string' ? value.message : '';
+    if (
+      code === '42501' ||
+      /row-level security|permission denied|not authorized|not allowed/i.test(message)
+    ) {
+      return 'Your account does not have permission to perform this comment action.';
+    }
+    return fallback;
+  }
 }
