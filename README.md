@@ -184,9 +184,9 @@ Before the first production deployment:
 
 No deployment was performed from this workspace. The repository URL, deployed URL, and demo credentials were not supplied, so they are intentionally not invented here:
 
-- GitHub repository: **[provide repository URL]**
-- Deployed application: **[provide verified deployment URL]**
-- Demo credentials: **[provide only if safe and available]**
+- GitHub repository: https://github.com/anonymous729374-dotcom/Renthub
+- Deployed application: https://renthub-ruddy.vercel.app/
+- Demo credentials: [ID: demo-account@gmail.com Password: 12345678] (or you can create your own) 
 
 ## Known limitations
 
